@@ -1,0 +1,15 @@
+[Unit]
+Description=Ghost Copilot AI Backend Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/copilot
+ExecStart=/usr/bin/python3 /root/copilot/app.py
+Restart=always
+RestartSec=5
+Environment=PORT=9471
+
+[Install]
+WantedBy=multi-user.target

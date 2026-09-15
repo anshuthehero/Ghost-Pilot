@@ -1,0 +1,55 @@
+# Environments & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+session_token
+.session_token
+
+# SQLite & Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Audio Recordings & Local Media
+audio/
+*.wav
+*.mp3
+*.m4a
+*.webm
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments & Portable Runtimes
+venv/
+env/
+.venv/
+ENV/
+runtime/
+
+# IDE & OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Server Logs
+*.log
+logs/
