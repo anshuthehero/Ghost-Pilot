@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://anshuthehero.github.io/Ghost-Pilot/sitemap.xml

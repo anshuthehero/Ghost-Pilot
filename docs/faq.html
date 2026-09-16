@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frequently Asked Questions — Ghost Copilot</title>
+  
+  <meta name="title" content="Frequently Asked Questions — Ghost Copilot" />
+  <meta name="description" content="Common questions about Ghost Copilot: Zoom and Google Meet screen share detection, Groq API keys, audio loopback setup, and privacy protection." />
+  <meta name="keywords" content="Ghost copilot FAQ, is ghost copilot detectable, zoom screen share invisible, interview AI assistant safety, groq free api key" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+  <meta name="theme-color" content="#070a13" />
+  <link rel="canonical" href="https://anshuthehero.github.io/Ghost-Pilot/faq.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://anshuthehero.github.io/Ghost-Pilot/faq.html" />
+  <meta property="og:title" content="Frequently Asked Questions — Ghost Copilot" />
+  <meta property="og:description" content="Answers to common questions about screen invisibility, audio capture, and API setup." />
+
+  <!-- Schema.org FAQPage Structured Data for Google Rich Snippets -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Ghost Copilot detectable when I share my screen on Zoom or Google Meet?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          \"text\": \"No. Ghost Copilot uses native OS-level window display flags (WDA_EXCLUDEFROMCAPTURE on Windows and NSWindowSharingNone on macOS) that instruct the operating system's window manager to omit the window entirely from screen capture streams. It renders visible on your physical monitor but appears completely transparent to meeting software.\"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I have to pay for a Groq API key to use Ghost Copilot?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          \"text\": \"No. Groq provides generous free tier API credits that include thousands of requests per day for Whisper Large V3 transcription and Llama 3.3 70B inference, which is more than enough for dozens of complete mock and live interviews.\"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use my mobile phone or iPad as a secondary screen?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          \"text\": \"Yes. Ghost Copilot runs a local lightweight web server. You can open 'http://<YOUR_COMPUTER_IP>:9471' from your phone, iPad, or tablet connected to the same Wi-Fi network to read answers without placing any overlay on your main computer screen.\"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Ghost Copilot store or record my conversation audio on any external server?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          \"text\": \"No. Audio is processed ephemeral-only: speech chunks are sent directly to your configured Groq API account for transcription and discarded immediately after response streaming. No telemetry or conversation logs are collected.\"
+        }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand">
+        <span>👻 GHOST COPILOT</span>
+        <span class="brand-badge">macOS & Windows</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="docs.html">Documentation</a></li>
+        <li><a href="features.html">Features</a></li>
+        <li><a href="faq.html" class="active">FAQ</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="https://github.com/anshuthehero/Ghost-Pilot" target="_blank">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container" style="margin-top: 3rem; margin-bottom: 5rem;">
+    <div style="max-width: 880px; margin: 0 auto;">
+      <h1 style="font-size: 2.75rem; margin-bottom: 1rem;">Frequently Asked Questions</h1>
+      <p style="font-size: 1.15rem; color: var(--text-muted); margin-bottom: 2.5rem;">
+        Everything you need to know about screen invisibility, audio capture, latency, and privacy.
+      </p>
+
+      <div style="display: grid; gap: 1.5rem;">
+        <div class="card">
+          <h3 style="color: var(--accent); font-size: 1.25rem;">Is Ghost Copilot detectable on Zoom, Meet, or Teams?</h3>
+          <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            No. Ghost Copilot uses operating system window manager flags (<code>WDA_EXCLUDEFROMCAPTURE</code> on Windows and <code>NSWindowSharingNone</code> on macOS). When Zoom or Google Meet captures your screen, the operating system simply skips the Ghost Copilot window buffer. It remains visible only on your physical screen.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="color: var(--accent); font-size: 1.25rem;">Do I have to pay for a Groq API key?</h3>
+          <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            No. Groq offers generous free-tier access that provides high rate limits for both <code>whisper-large-v3</code> speech-to-text and <code>llama-3.3-70b-versatile</code> inference. A free key easily covers full multi-hour interview sessions.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="color: var(--accent); font-size: 1.25rem;">Can I use a secondary device like a phone or iPad?</h3>
+          <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            Yes! Ghost Copilot includes a built-in mobile web companion. Simply open <code>http://&lt;YOUR_PC_IP&gt;:9471</code> on your phone or iPad on the same Wi-Fi network. You can prop your phone under your webcam and glance at solutions naturally without keeping any window on your monitor.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="color: var(--accent); font-size: 1.25rem;">What if my interviewer speaks with background noise or an accent?</h3>
+          <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            Ghost Copilot uses OpenAI's Whisper Large V3 hosted on Groq, which is one of the most robust speech-to-text models available for handling accented English, technical jargon, and noisy microphone inputs.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="color: var(--accent); font-size: 1.25rem;">Is my audio or conversation data stored anywhere?</h3>
+          <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            No. The application runs locally on your machine. Audio buffers are held in RAM, sent over TLS to Groq API for transcription, and immediately cleared. No telemetry, audio recordings, or interview logs are retained.
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="docs.html">Documentation</a>
+        <a href="features.html">Features</a>
+        <a href="faq.html">FAQ</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/anshuthehero/Ghost-Pilot" target="_blank">GitHub</a>
+      </div>
+      <p>&copy; 2026 Ghost Copilot. Built for developers by developers.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

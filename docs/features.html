@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Features & Stealth Architecture — Ghost Copilot</title>
+  
+  <meta name="title" content="Features & Stealth Architecture — Ghost Copilot" />
+  <meta name="description" content="Technical deep dive into Ghost Copilot: OS-level screen-share invisibility, sub-second Groq speech transcription, clipboard watcher, and customizable AI interview personas." />
+  <meta name="keywords" content="screen share invisible AI, Groq whisper large v3, llama 3.3 70b interview, stealth HUD, leetcode auto solver, virtual audio BlackHole" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#070a13" />
+  <link rel="canonical" href="https://anshuthehero.github.io/Ghost-Pilot/features.html" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://anshuthehero.github.io/Ghost-Pilot/features.html" />
+  <meta property="og:title" content="Features & Stealth Architecture — Ghost Copilot" />
+  <meta property="og:description" content="Explore the real-time AI audio pipeline and screen-share invisible display architecture." />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="brand">
+        <span>👻 GHOST COPILOT</span>
+        <span class="brand-badge">macOS & Windows</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="docs.html">Documentation</a></li>
+        <li><a href="features.html" class="active">Features</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="https://github.com/anshuthehero/Ghost-Pilot" target="_blank">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container" style="margin-top: 3rem; margin-bottom: 5rem;">
+    <div style="max-width: 880px; margin: 0 auto;">
+      <h1 style="font-size: 2.75rem; margin-bottom: 1rem;">Features & Stealth Architecture</h1>
+      <p style="font-size: 1.15rem; color: var(--text-muted); margin-bottom: 2.5rem;">
+        Engineered for zero distraction, instant response speed, and bulletproof screen-sharing protection.
+      </p>
+
+      <!-- Feature 1: Stealth Invisibility -->
+      <section style="margin-bottom: 3.5rem;">
+        <div class="card" style="border-left: 4px solid var(--purple);">
+          <h2 style="color: #ffffff; font-size: 1.6rem; margin-bottom: 0.75rem;">1. True OS-Level Screen Share Invisibility</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
+            When you share your entire desktop or specific windows during a video call on <strong>Zoom, Google Meet, Microsoft Teams, Discord, or Slack</strong>, the streaming software polls the operating system's window server buffer.
+          </p>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
+            Ghost Copilot instructs the operating system to omit its window entirely from frame capture buffers:
+          </p>
+          <div class="grid-2" style="margin: 1rem 0;">
+            <div style="background: rgba(4, 7, 17, 0.6); padding: 1rem; border-radius: 8px;">
+              <h4 style="color: var(--accent); margin-bottom: 0.4rem;">Windows (WDA_EXCLUDEFROMCAPTURE)</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Utilizes the Windows Desktop Window Manager API (<code>SetWindowDisplayAffinity</code>). The window renders transparently on your monitor but appears as empty space to screen recorders.
+              </p>
+            </div>
+            <div style="background: rgba(4, 7, 17, 0.6); padding: 1rem; border-radius: 8px;">
+              <h4 style="color: var(--purple); margin-bottom: 0.4rem;">macOS (NSWindowSharingNone)</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Sets the Cocoa window sharing type to <code>NSWindowSharingNone</code>, blocking screen recording daemons while maintaining full interaction.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature 2: Sub-Second Audio Inference -->
+      <section style="margin-bottom: 3.5rem;">
+        <div class="card" style="border-left: 4px solid var(--accent);">
+          <h2 style="color: #ffffff; font-size: 1.6rem; margin-bottom: 0.75rem;">2. Sub-Second Speech-to-Text via Groq Whisper</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
+            Standard local Whisper implementations introduce 2 to 4 seconds of transcription delay — an unacceptable pause in a fast-paced interview.
+          </p>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7;">
+            Ghost Copilot streams captured audio chunks to <strong>Groq Whisper Large V3</strong> running on LPUs (Language Processing Units), completing speech-to-text in <strong>under 350 milliseconds</strong>. Responses begin streaming token-by-token from <code>llama-3.3-70b-versatile</code> before the interviewer even finishes their sentence.
+          </p>
+        </div>
+      </section>
+
+      <!-- Feature 3: Clipboard Watcher -->
+      <section style="margin-bottom: 3.5rem;">
+        <div class="card" style="border-left: 4px solid var(--green);">
+          <h2 style="color: #ffffff; font-size: 1.6rem; margin-bottom: 0.75rem;">3. Instant Clipboard Watcher for Coding Challenges</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
+            When an interviewer pastes a coding problem into the interview chat or opens an online whiteboard (LeetCode, HackerRank, CoderPad):
+          </p>
+          <ul style="color: var(--text-muted); margin-left: 1.5rem; line-height: 1.8; font-size: 0.93rem;">
+            <li>Highlight and copy the problem text (<code>Ctrl+C</code> / <code>Cmd+C</code>).</li>
+            <li>Ghost Copilot detects the clipboard update instantly without requiring manual switching.</li>
+            <li>The assistant automatically produces the optimal algorithmic solution, time/space complexities, and concise explanation notes.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Feature 4: Role Customization -->
+      <section>
+        <div class="card">
+          <h2 style="color: #ffffff; font-size: 1.6rem; margin-bottom: 0.75rem;">4. Contextual Persona & Role Customization</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
+            Different interviews demand different tones and technical depth. Through the built-in <strong>⚙️ Role</strong> dialog, you can instruct Ghost Copilot to act as:
+          </p>
+          <ul style="color: var(--text-muted); margin-left: 1.5rem; line-height: 1.8; font-size: 0.93rem;">
+            <li><strong>Principal System Design Architect:</strong> Emphasizes scalability, CAP theorem trade-offs, caching tiers, and event-driven microservices.</li>
+            <li><strong>Staff Full-Stack Engineer:</strong> Emphasizes React component lifecycle, async API contracts, and database indexing.</li>
+            <li><strong>Behavioral & STAR Leader:</strong> Formulates answers using Situation, Task, Action, and Result structures.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="docs.html">Documentation</a>
+        <a href="features.html">Features</a>
+        <a href="faq.html">FAQ</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/anshuthehero/Ghost-Pilot" target="_blank">GitHub</a>
+      </div>
+      <p>&copy; 2026 Ghost Copilot. Built for developers by developers.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
