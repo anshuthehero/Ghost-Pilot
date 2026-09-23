@@ -582,6 +582,33 @@ class _HUDWindow(QMainWindow):
                     return True
                 return False  # block all external navigation
 
+            def featurePermissionRequested(self, url, feature) -> None:
+                """Auto-grant mic/audio for localhost — required for voice capture."""
+                try:
+                    if url.host().lower() not in ("127.0.0.1", "localhost"):
+                        self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
+                        return
+                    try:
+                        F = QWebEnginePage.Feature
+                        audio_features = {
+                            F.MediaAudioCapture, F.MediaVideoCapture,
+                            F.MediaAudioVideoCapture, F.DesktopAudioVideoCapture,
+                            F.DesktopVideoCapture,
+                        }
+                        policy = (
+                            QWebEnginePage.PermissionPolicy.PermissionGrantedByUser
+                            if feature in audio_features
+                            else QWebEnginePage.PermissionPolicy.PermissionDeniedByUser
+                        )
+                    except AttributeError:
+                        policy = QWebEnginePage.PermissionPolicy.PermissionGrantedByUser
+                    self.setFeaturePermission(url, feature, policy)
+                except Exception:
+                    try:
+                        self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionGrantedByUser)
+                    except Exception:
+                        pass
+
         view = QWebEngineView()
         view.setPage(_LocalPage(view))
         s = view.settings()

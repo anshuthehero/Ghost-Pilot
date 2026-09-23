@@ -36,4 +36,6 @@ if errorlevel 1 (
 )
 
 :: ── Launch ───────────────────────────────────────────────────────────────────
+:: Grant mic access to embedded browser engine (no browser pop-ups)
+set "QTWEBENGINE_CHROMIUM_FLAGS=--use-fake-ui-for-media-stream --disable-features=MediaSessionService"
 %PY% "%~dp0launcher.py"

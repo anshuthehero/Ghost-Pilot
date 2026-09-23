@@ -188,7 +188,39 @@ def run_windows_client():
                         print(f"[🛡️ Security Alert] Blocked Windows browser navigation to external URL: {url.toString()}")
                         return False
 
+                    def featurePermissionRequested(self, url: QUrl, feature) -> None:
+                        """Auto-grant mic/audio capture for localhost — required for voice features."""
+                        try:
+                            host = url.host().lower()
+                            if host not in ("127.0.0.1", "localhost"):
+                                self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
+                                return
+                            # Grant mic, audio, and desktop media for localhost only
+                            granted_features = set()
+                            try:
+                                F = QWebEnginePage.Feature
+                                granted_features = {
+                                    F.MediaAudioCapture,
+                                    F.MediaVideoCapture,
+                                    F.MediaAudioVideoCapture,
+                                    F.DesktopAudioVideoCapture,
+                                    F.DesktopVideoCapture,
+                                }
+                            except AttributeError:
+                                pass
+                            if feature in granted_features or not granted_features:
+                                self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionGrantedByUser)
+                            else:
+                                self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionDeniedByUser)
+                        except Exception:
+                            # Fallback: grant everything for localhost
+                            try:
+                                self.setFeaturePermission(url, feature, QWebEnginePage.PermissionPolicy.PermissionGrantedByUser)
+                            except Exception:
+                                pass
+
                 self.browser.setPage(SecureWebPage(self.browser))
+
 
             # Harden browser security settings
             if QWebEngineSettings is not None:

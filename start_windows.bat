@@ -100,6 +100,10 @@ taskkill /F /IM python.exe /FI "WINDOWTITLE eq Interview Assistant Engine*" >nul
 taskkill /F /IM python.exe /FI "WINDOWTITLE eq Ghost Copilot Engine*" >nul 2>&1
 timeout /t 1 /nobreak >nul 2>&1 || ping 127.0.0.1 -n 2 >nul
 
+REM 3b. Grant microphone access to embedded browser engine (no pop-ups, no browser needed)
+set "QTWEBENGINE_CHROMIUM_FLAGS=--use-fake-ui-for-media-stream --auto-select-desktop-capture-source=Entire screen --disable-features=MediaSessionService"
+
+
 REM 4. Start local AI engine in background
 echo [*] Starting Interview Assistant Engine on http://127.0.0.1:9471...
 start "Interview Assistant Engine" /min "%PYTHON_EXE%" app.py

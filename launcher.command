@@ -30,4 +30,6 @@ if ! "$PY" -c "import PyQt6" 2>/dev/null; then
 fi
 
 # ── Launch ────────────────────────────────────────────────────────────────────
+# Grant mic access to embedded browser engine (no pop-ups)
+export QTWEBENGINE_CHROMIUM_FLAGS="--use-fake-ui-for-media-stream --disable-features=MediaSessionService"
 "$PY" "$(dirname "$0")/launcher.py"
