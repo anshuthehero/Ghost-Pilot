@@ -118,7 +118,7 @@ class GroqClient:
         Streams chat completion tokens from Groq as an async generator.
         """
         if not self.api_key:
-            yield "⚠️ GROQ_API_KEY is not configured on the server."
+            yield "[Warning] GROQ_API_KEY is not configured on the server."
             return
 
         system_content = BASE_SYSTEM_PROMPT
@@ -176,7 +176,7 @@ class GroqClient:
             if item is None:
                 break
             if isinstance(item, Exception):
-                yield f"\n\n⚠️ {item}"
+                yield f"\n\n[Error] {item}"
                 break
             yield item
 

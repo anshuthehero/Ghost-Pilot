@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
     except Exception as e:
-        print(f"[⚠️ Database Init] {e}")
+        print(f"[Database Init Warning] {e}")
     yield
     # Shutdown: clean up if needed
 

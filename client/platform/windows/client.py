@@ -185,7 +185,7 @@ def run_windows_client():
                             return True
                         if host in ("127.0.0.1", "localhost") and (url.port() in (9471, -1)):
                             return True
-                        print(f"[🛡️ Security Alert] Blocked Windows browser navigation to external URL: {url.toString()}")
+                        print(f"[Security Alert] Blocked Windows browser navigation to external URL: {url.toString()}")
                         return False
 
                     def featurePermissionRequested(self, url: QUrl, feature) -> None:

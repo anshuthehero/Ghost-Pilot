@@ -198,9 +198,9 @@ def print_doctor_report():
     env = report.get("environment", {})
 
     print("=" * 64)
-    print("  🎙️ INTERVIEW ASSISTANT — SYSTEM DIAGNOSTIC DOCTOR")
+    print("  INTERVIEW ASSISTANT - SYSTEM DIAGNOSTIC DOCTOR")
     print("=" * 64)
-    print(f"Platform:         {report['platform'].upper()} — {env.get('os_version', '')} ({env.get('architecture', '')})")
+    print(f"Platform:         {report['platform'].upper()} - {env.get('os_version', '')} ({env.get('architecture', '')})")
     print(f"Python Runtime:   {env.get('python_version', '')} ({env.get('python_executable', '')})")
     print(f"Client Version:   {report['client_version']}")
     print("-" * 64)

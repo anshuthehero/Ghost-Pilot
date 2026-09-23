@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Ghost Copilot v3 — Full Featured
-• TWO MODES: Auto-listen (mic VAD) ↔ PTT (F5/Spacebar)
-• Auto-mode reading cooldown: waits based on answer length before re-listening
-• Conversation history: follow-up questions understood in context
-• Visible/Invisible toggle button in HUD
-• Speaker VAD: BlackHole captures interviewer audio automatically
-• Clipboard watcher: copy any text → instant answer
-• Invisible to screen capture (NSWindowSharingNone)
+Ghost Copilot v3 - Full Featured
+- TWO MODES: Auto-listen (mic VAD) <-> PTT (F5/Spacebar)
+- Auto-mode reading cooldown: waits based on answer length before re-listening
+- Conversation history: follow-up questions understood in context
+- Visible/Invisible toggle button in HUD
+- Speaker VAD: BlackHole captures interviewer audio automatically
+- Clipboard watcher: copy any text -> instant answer
+- Invisible to screen capture (NSWindowSharingNone)
 """
 
 import collections
@@ -24,6 +24,16 @@ import time
 import urllib.request
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+if sys.platform.startswith('win'):
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
@@ -79,17 +89,17 @@ else:
             os.chmod(_token_file, 0o600)  # Owner read/write only
         except Exception:
             pass
-        print(f"[🔒 Security] Auto-generated session token (stored at ~/.ghost_copilot/session_token)")
-        print(f"[🔒 Security] Set COPILOT_AUTH_TOKEN in .env to use a persistent token instead.")
+        print(f"[ Security] Auto-generated session token (stored at ~/.ghost_copilot/session_token)")
+        print(f"[ Security] Set COPILOT_AUTH_TOKEN in .env to use a persistent token instead.")
     except Exception as _e:
-        print(f"[⚠️ Security] Could not persist session token to ~/.ghost_copilot: {_e}")
+        print(f"[ Security] Could not persist session token to ~/.ghost_copilot: {_e}")
 
     # Always persist locally next to app.py for portable and restricted Windows setups
     try:
         _fallback_file = os.path.join(BASE_DIR, ".session_token")
         with open(_fallback_file, "w", encoding="utf-8") as _tf:
             _tf.write(AUTH_TOKEN)
-        print(f"[🔒 Security] Stored session token in local directory (.session_token)")
+        print(f"[ Security] Stored session token in local directory (.session_token)")
     except Exception:
         pass
 # ────────────────────────────────────────────────────────────────────────────
@@ -106,7 +116,7 @@ except Exception:
     FFMPEG_BIN = shutil.which("ffmpeg") or "ffmpeg"
 
 if not GROQ_KEY:
-    print("[⚠️ SECURITY WARNING] GROQ_API_KEY is not set in environment or .env file!")
+    print("[ SECURITY WARNING] GROQ_API_KEY is not set in environment or .env file!")
 
 # Regex patterns to detect and filter out accidentally copied sensitive data
 SECRET_PATTERNS = [
@@ -129,7 +139,7 @@ def is_sensitive_data(text):
         return False
     for p in SECRET_PATTERNS:
         if p.search(text):
-            print("[🛡️ Security] Filtered sensitive credential from clipboard.")
+            print("[ Security] Filtered sensitive credential from clipboard.")
             return True
     return False
 
@@ -154,7 +164,7 @@ IGNORED = {
     "subscribe", "please subscribe", "like and subscribe", "bye bye", "so"
 }
 
-DEFAULT_SYSTEM_PROMPT = """You are a brilliant real-time interview assistant. Answer ANY question — technical, general knowledge, HR, behavioural, domain-specific.
+DEFAULT_SYSTEM_PROMPT = """You are a brilliant real-time interview assistant. Answer ANY question - technical, general knowledge, HR, behavioural, domain-specific.
 
 RULES:
 - Answer directly. No preamble, no filler phrases.
@@ -333,11 +343,11 @@ def transcribe(path):
                 data = json.loads(resp.read().decode())
                 text = data.get("text", "").strip()
         except Exception as e:
-            print(f"[❌ Whisper] {e}")
+            print(f"[ Whisper] {e}")
             return None
 
     if text:
-        print(f"[🎤 Whisper] \"{text}\"")
+        print(f"[ Whisper] \"{text}\"")
         return text if text.lower().rstrip(".,!? ") not in IGNORED else None
     return None
 
@@ -368,7 +378,7 @@ def stream_answer(question, gid):
                 except Exception:
                     continue
     except Exception as e:
-        print(f"[❌ LLM] {e}"); broadcast("error", {"message": str(e)}); return
+        print(f"[ LLM] {e}"); broadcast("error", {"message": str(e)}); return
 
     if full:
         conv_history.append({"role": "user", "content": question})
@@ -386,7 +396,7 @@ def stream_answer(question, gid):
 
         broadcast("status", {"state": "done"})
         broadcast("cooldown", {"seconds": cooldown, "words": wc, "mode": str(user_custom_duration)})
-        print(f"[📖] {wc} words → {cooldown}s duration (mode: {user_custom_duration})")
+        print(f"[] {wc} words -> {cooldown}s duration (mode: {user_custom_duration})")
 
 
 def solve(question):
@@ -395,7 +405,7 @@ def solve(question):
     if not q or q.lower().rstrip(".,!? ") in IGNORED: return
     with gen_lock:
         gen_id += 1; gid = gen_id
-    print(f"\n[🚀 Q#{gid}] \"{q[:80]}\"")
+    print(f"\n[ Q#{gid}] \"{q[:80]}\"")
     broadcast("status", {"state": "generating", "question": q})
     stream_answer(q, gid)
 
@@ -440,17 +450,17 @@ def get_mic_ffmpeg_args(out_path, duration=None):
 
 def auto_vad_loop():
     CHUNK = 3.5
-    print("[🎙️ Auto VAD] Thread listening...")
+    print("[ Auto VAD] Thread listening...")
     while True:
         if not auto_mode or manual_recording:
             time.sleep(0.3); continue
         remaining = reading_until - time.time()
         if remaining > 0:
             broadcast("vadstate", {"state": "cooling",
-                "label": f"📖 Reading... auto-listen in {int(remaining)}s"})
+                "label": f" Reading... auto-listen in {int(remaining)}s"})
             time.sleep(1); continue
         chunk = os.path.join(AUDIO_DIR, "mic_chunk.wav")
-        broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+        broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
         try:
             cmd = get_mic_ffmpeg_args(chunk, duration=CHUNK)
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=int(CHUNK) + 2, **_win32_sp_kwargs())
@@ -458,15 +468,15 @@ def auto_vad_loop():
             time.sleep(0.5); continue
 
         if has_voice(chunk, threshold_db=-42.0, min_dynamic_range=1.5):
-            print("[🎤 Auto VAD] Voice detected! Transcribing...")
-            broadcast("vadstate", {"state": "processing", "label": "⚡ Heard speech — transcribing..."})
+            print("[ Auto VAD] Voice detected! Transcribing...")
+            broadcast("vadstate", {"state": "processing", "label": "Heard speech - transcribing..."})
             text = transcribe(chunk)
             if text and len(text.strip()) >= 2:
                 threading.Thread(target=solve, args=(text,), daemon=True).start()
             else:
-                broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+                broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
         else:
-            broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+            broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
 
 
 _devices_probed = False
@@ -489,17 +499,17 @@ def detect_audio_devices():
                         m = re.search(r'\[(\d+)\]', line)
                         if m and not MIC_DEVICE:
                             MIC_DEVICE = m.group(1)
-                            print(f"[🎤 Mic] Using microphone at [{MIC_DEVICE}] ({line.strip()})")
+                            print(f"[ Mic] Using microphone at [{MIC_DEVICE}] ({line.strip()})")
                     if "BlackHole" in line:
                         m = re.search(r'\[(\d+)\]', line)
                         if m:
                             BLACKHOLE_DEVICE = m.group(1)
-                            print(f"[🔊] BlackHole at [{BLACKHOLE_DEVICE}]")
+                            print(f"[] BlackHole at [{BLACKHOLE_DEVICE}]")
         except Exception:
             pass
         if not MIC_DEVICE:
             MIC_DEVICE = "1"
-            print(f"[🎤 Mic] Defaulting to microphone index [{MIC_DEVICE}]")
+            print(f"[ Mic] Defaulting to microphone index [{MIC_DEVICE}]")
     elif sys.platform.startswith("win"):
         try:
             r = subprocess.run(
@@ -509,13 +519,13 @@ def detect_audio_devices():
                 if "(audio)" in line:
                     clean_name = line.split("]")[ -1].replace("(audio)", "").strip().strip('"')
                     MIC_DEVICE = clean_name
-                    print(f"[🎤 Mic] Using Windows microphone: \"{MIC_DEVICE}\"")
+                    print(f"[ Mic] Using Windows microphone: \"{MIC_DEVICE}\"")
                     break
         except Exception:
             pass
         if not MIC_DEVICE:
             MIC_DEVICE = "default"
-            print(f"[🎤 Mic] Defaulting to Windows microphone: \"{MIC_DEVICE}\"")
+            print(f"[ Mic] Defaulting to Windows microphone: \"{MIC_DEVICE}\"")
 
         BLACKHOLE_DEVICE = "default"
         try:
@@ -527,11 +537,11 @@ def detect_audio_devices():
                     clean_name = line.split("]")[ -1].strip().strip('"')
                     if clean_name:
                         BLACKHOLE_DEVICE = clean_name
-                        print(f"[🔊] Windows WASAPI loopback target: \"{BLACKHOLE_DEVICE}\"")
+                        print(f"[] Windows WASAPI loopback target: \"{BLACKHOLE_DEVICE}\"")
                         break
         except Exception:
             pass
-        print(f"[🔊] Windows native WASAPI loopback ready (using: {BLACKHOLE_DEVICE}).")
+        print(f"[] Windows native WASAPI loopback ready (using: {BLACKHOLE_DEVICE}).")
 
 def detect_mic():
     detect_audio_devices()
@@ -545,10 +555,10 @@ def speaker_vad_loop():
     CHUNK = 5.0
     if not detect_blackhole():
         broadcast("speakervad", {"state": "unavailable",
-            "label": "❌ System audio capture not ready"})
+            "label": " System audio capture not ready"})
         return
-    broadcast("speakervad", {"state": "active", "label": "🔊 Interviewer Listen: ON"})
-    print("[🔊 Speaker VAD] Listening to system audio...")
+    broadcast("speakervad", {"state": "active", "label": " Interviewer Listen: ON"})
+    print("[ Speaker VAD] Listening to system audio...")
     while True:
         chunk = os.path.join(AUDIO_DIR, "spk_chunk.wav")
         try:
@@ -572,12 +582,12 @@ def speaker_vad_loop():
             time.sleep(1); continue
 
         if has_voice(chunk, threshold_db=-35.0):
-            print("[🔊 Speaker VAD] Interviewer speech detected!")
-            broadcast("speakervad", {"state": "processing", "label": "🔊 Heard Interviewer — answering..."})
+            print("[ Speaker VAD] Interviewer speech detected!")
+            broadcast("speakervad", {"state": "processing", "label": "Heard Interviewer - answering..."})
             text = transcribe(chunk)
             if text:
                 threading.Thread(target=solve, args=(text,), daemon=True).start()
-            broadcast("speakervad", {"state": "active", "label": "🔊 Interviewer Listen: ON"})
+            broadcast("speakervad", {"state": "active", "label": "Interviewer Listen: ON"})
 
 
 def clipboard_watcher():
@@ -591,7 +601,7 @@ def clipboard_watcher():
                 if not is_sensitive_data(c):
                     threading.Thread(target=solve, args=(c,), daemon=True).start()
                 else:
-                    print("[🛡️ Security] Ignored sensitive clipboard data.")
+                    print("[ Security] Ignored sensitive clipboard data.")
             time.sleep(0.3)
         except Exception:
             time.sleep(1)
@@ -606,7 +616,7 @@ def ptt_record():
     try:
         ptt = os.path.join(AUDIO_DIR, "ptt.wav")
         broadcast("ptt_state", {"recording": True})
-        broadcast("vadstate", {"state": "recording", "label": "🔴 Recording... speak now"})
+        broadcast("vadstate", {"state": "recording", "label": "Recording... speak now"})
         cmd = get_mic_ffmpeg_args(ptt)
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_win32_sp_kwargs())
         while manual_recording:
@@ -615,12 +625,12 @@ def ptt_record():
         try: proc.wait(timeout=2)
         except Exception: proc.kill()
         broadcast("ptt_state", {"recording": False})
-        broadcast("vadstate", {"state": "processing", "label": "⚡ Transcribing..."})
+        broadcast("vadstate", {"state": "processing", "label": "Transcribing..."})
         text = transcribe(ptt)
         if text:
             solve(text)
         else:
-            broadcast("vadstate", {"state": "idle", "label": "🎤 PTT ready — Spacebar"})
+            broadcast("vadstate", {"state": "idle", "label": "PTT ready - Spacebar"})
     finally:
         ptt_lock.release()
 
@@ -1188,7 +1198,7 @@ body.aura-red {
 <!-- Groq API Key Missing Banner -->
 <div class="shield-banner" id="api-key-banner" style="display:none;background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.4);color:#fcd34d;cursor:pointer;margin-bottom:8px" onclick="openApiKeyModal()">
   <div style="display:flex;align-items:center;gap:6px">
-    <span>⚡</span>
+    <span style="color:#f59e0b;font-weight:700">!</span>
     <span><b>Groq API Key Required:</b> Click here to paste your key</span>
   </div>
   <span style="font-size:10px;text-transform:uppercase;font-weight:700;padding:2px 6px;background:rgba(245,158,11,0.2);border-radius:4px">Setup</span>
@@ -1197,8 +1207,8 @@ body.aura-red {
 <!-- Animated Shield Status Banner -->
 <div class="shield-banner" id="shield-banner">
   <div style="display:flex;align-items:center;gap:6px">
-    <span id="shield-icon">🛡️</span>
-    <span id="shield-text">Ghost Shield Active — Invisible to Screen Share</span>
+    <span id="shield-icon"></span>
+    <span id="shield-text">Stealth Shield Active - Invisible to Screen Share</span>
   </div>
   <span style="font-size:9.5px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px" id="shield-tag">Protected</span>
 </div>
@@ -1210,9 +1220,9 @@ body.aura-red {
     <span>Interview Assistant</span>
   </div>
   <div class="header-actions">
-    <button class="btn-glass" id="api-key-btn" onclick="openApiKeyModal()">🔑 API Key</button>
-    <button class="btn-glass" onclick="openRoleModal()">⚙️ Role</button>
-    <button class="btn-glass" id="vis-btn" onclick="toggleVisible()">🫥 Toggle Ghost</button>
+    <button class="btn-glass" id="api-key-btn" onclick="openApiKeyModal()">API Key</button>
+    <button class="btn-glass" onclick="openRoleModal()">Role</button>
+    <button class="btn-glass" id="vis-btn" onclick="toggleVisible()">Stealth: ON</button>
     <button class="btn-glass" onclick="clearAll()">Clear</button>
     <button class="btn-glass" onclick="setOp(.65)">65%</button>
     <button class="btn-glass" onclick="setOp(.3)">Ghost</button>
@@ -1221,19 +1231,19 @@ body.aura-red {
 
 <!-- Mode Toggle -->
 <div class="segmented-bar">
-  <button class="segment-btn active" id="btn-ptt" onclick="setMode('ptt')">🎤 Spacebar PTT</button>
-  <button class="segment-btn" id="btn-auto" onclick="setMode('auto')">🔁 Auto-Listen</button>
+  <button class="segment-btn active" id="btn-ptt" onclick="setMode('ptt')">Spacebar PTT</button>
+  <button class="segment-btn" id="btn-auto" onclick="setMode('auto')">Auto-Listen</button>
 </div>
 
 <!-- Browser Mic Live Listen -->
 <button class="browser-mic-btn" id="web-mic-btn" onclick="toggleBrowserMic()">
-  <span id="web-mic-icon">🎙️</span>
+  <span id="web-mic-icon"></span>
   <span id="web-mic-text">Browser Mic: Click to Listen Live</span>
 </button>
 
 <!-- Duration Selector (5s, 10s, 15s, 30s, 45s, 1m + Auto) -->
 <div class="dur-row">
-  <span class="dur-label">⏱️ Display Time</span>
+  <span class="dur-label">Display Time</span>
   <div class="dur-group">
     <button class="dur-chip active" id="dur-auto" onclick="setDuration('auto')">Auto</button>
     <button class="dur-chip" id="dur-5" onclick="setDuration(5)">5s</button>
@@ -1247,38 +1257,38 @@ body.aura-red {
 
 <!-- Emergency Stay / Freeze Button -->
 <button class="stay-btn" id="stay-btn" onclick="toggleEmergencyStay()">
-  <span id="stay-icon">📌</span>
+  <span id="stay-icon"></span>
   <span id="stay-label">Emergency Stay (Freeze Answer) [P]</span>
 </button>
 
 <!-- Emergency Skip Question Button (Auto-Listen only) -->
 <button class="skip-btn" id="skip-btn" onclick="emergencySkip()">
-  <span>⏭️</span>
+  <span></span>
   <span>Emergency Skip Question [S]</span>
 </button>
 
 <!-- Unified Status Monitor -->
 <div class="status-card">
   <div class="status-indicator">
-    <span id="vad-icon">🎤</span>
-    <span class="status-text" id="vad-label" style="color:#93c5fd">PTT ready — Spacebar</span>
+    <span id="vad-icon"></span>
+    <span class="status-text" id="vad-label" style="color:#93c5fd">PTT ready - Spacebar</span>
   </div>
   <div class="status-indicator">
-    <span id="spk-icon">🔊</span>
+    <span id="spk-icon"></span>
     <span class="status-text" id="spk-label" style="color:#34d399">Interviewer Listen</span>
   </div>
 </div>
 
 <!-- PTT Action Button -->
 <button class="ptt-action" id="ptt-btn" onclick="togglePTT()">
-  <span id="ptt-ico">🎤</span>
-  <span id="ptt-lbl">Press Spacebar — Start Speaking</span>
+  <span id="ptt-ico"></span>
+  <span id="ptt-lbl">Press Spacebar - Start Speaking</span>
 </button>
 
 <!-- Cooldown Bar -->
 <div class="cooldown-wrap" id="cd-box">
   <div style="display:flex;justify-content:space-between;font-size:11px">
-    <span>📖 Reading Cooldown</span>
+    <span>Reading Cooldown</span>
     <span><b id="cd-num">0</b>s remaining</span>
   </div>
   <div class="cd-bar-track">
@@ -1290,20 +1300,19 @@ body.aura-red {
 <div class="prompt-input-card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:12px">✍️</span>
       <span style="font-size:11px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:0.6px">Write Prompt / Question</span>
     </div>
-    <button class="btn-glass" onclick="openRoleModal()" style="font-size:10px;padding:3px 7px">⚙️ Role Instructions</button>
+    <button class="btn-glass" onclick="openRoleModal()" style="font-size:10px;padding:3px 7px">Role Instructions</button>
   </div>
   <textarea class="prompt-textarea" id="main-prompt-input" rows="2" placeholder="Type or paste any interview prompt or question here... (Enter to ask, Shift+Enter for new line)"></textarea>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:6px">
     <div style="display:flex;gap:4px;flex-wrap:wrap">
-      <button class="chip-template" onclick="applyTemplate('approach')">💡 Approach</button>
-      <button class="chip-template" onclick="applyTemplate('code')">💻 Code</button>
-      <button class="chip-template" onclick="applyTemplate('star')">⭐ Behavioral</button>
-      <button class="chip-template" onclick="applyTemplate('complexity')">⏱️ Complexity</button>
+      <button class="chip-template" onclick="applyTemplate('approach')">Approach</button>
+      <button class="chip-template" onclick="applyTemplate('code')">Code</button>
+      <button class="chip-template" onclick="applyTemplate('star')">Behavioral</button>
+      <button class="chip-template" onclick="applyTemplate('complexity')">Complexity</button>
     </div>
-    <button class="btn-ask" onclick="submitMainPrompt()">⚡ Ask AI</button>
+    <button class="btn-ask" onclick="submitMainPrompt()">Ask AI</button>
   </div>
 </div>
 
@@ -1316,12 +1325,12 @@ body.aura-red {
 <!-- Answer Box -->
 <main id="out">
   <div class="output-card" style="text-align:center;padding:34px 16px;color:#64748b">
-    <div style="font-size:36px;margin-bottom:10px">🎙️</div>
+    <div style="font-size:36px;margin-bottom:10px"></div>
     <div style="font-weight:700;color:#f1f5f9;font-size:14px;margin-bottom:8px">Interview Assistant is Ready</div>
     <div style="font-size:12px;line-height:1.75;color:#94a3b8;max-width:340px;margin:0 auto">
-      • Press <b style="color:#93c5fd">Spacebar</b> to speak &amp; submit<br>
-      • Switch to <b style="color:#34d399">Auto-Listen</b> for continuous AI assistance<br>
-      • Press <b style="color:#fcd34d">P (Emergency Stay)</b> anytime to freeze long answers
+      - Press <b style="color:#93c5fd">Spacebar</b> to speak &amp; submit<br>
+      - Switch to <b style="color:#34d399">Auto-Listen</b> for continuous AI assistance<br>
+      - Press <b style="color:#fcd34d">P (Emergency Stay)</b> anytime to freeze long answers
     </div>
   </div>
 </main>
@@ -1329,7 +1338,7 @@ body.aura-red {
 <!-- Floating Input -->
 <footer class="input-dock">
   <input class="dock-input" id="inp" type="text" placeholder="Type prompt + Enter...">
-  <button class="dock-btn" onclick="sendText()">⚡</button>
+  <button class="dock-btn" onclick="sendText()">Send</button>
 </footer>
 
 <script>
@@ -1361,14 +1370,14 @@ function toggleVisible() {
   if (isScreenVisible) {
     b.classList.add('aura-red');
     banner.className = 'shield-banner danger';
-    sIcon.textContent = '👁️';
-    sText.textContent = 'Visible Mode — Screen Share Can See Window';
+    sIcon.textContent = '!';
+    sText.textContent = 'Visible Mode - Screen Share Can See Window';
     sTag.textContent = 'Test Mode';
   } else {
     b.classList.add('aura-green');
     banner.className = 'shield-banner';
-    sIcon.textContent = '🛡️';
-    sText.textContent = 'Ghost Shield Active — Invisible to Screen Share';
+    sIcon.textContent = '';
+    sText.textContent = 'Stealth Shield Active - Invisible to Screen Share';
     sTag.textContent = 'Protected';
   }
 }
@@ -1390,7 +1399,7 @@ function setMode(m) {
     vl.textContent = 'Auto-listen active';
     vl.style.color = '#34d399';
   } else {
-    vl.textContent = 'PTT ready — Spacebar';
+    vl.textContent = 'PTT ready - Spacebar';
     vl.style.color = '#93c5fd';
   }
 }
@@ -1400,9 +1409,9 @@ function emergencySkip() {
   clearAll();
   const hb = document.getElementById('heard-box');
   if (hb) hb.style.display = 'none';
-  document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:24px;color:#fb7185;font-size:12.5px;font-weight:600">⏭️ Question Skipped — Resuming Auto-Listen...</div>';
+  document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:24px;color:#fb7185;font-size:12.5px;font-weight:600">Question Skipped - Resuming Auto-Listen...</div>';
   setTimeout(() => {
-    document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:32px;color:#64748b;font-size:13px">👻 Ready</div>';
+    document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:32px;color:#64748b;font-size:13px">Ready</div>';
   }, 1400);
 }
 
@@ -1428,8 +1437,8 @@ function toggleEmergencyStay() {
   if (isFrozen) {
     clearInterval(cdTimer);
     btn.classList.add('frozen');
-    ico.textContent = '⏸️';
-    lbl.textContent = 'Answer Frozen — Click to Unfreeze [P]';
+    ico.textContent = '||';
+    lbl.textContent = 'Answer Frozen - Click to Unfreeze [P]';
     if (box) box.style.display = 'none';
     fetch('/set_duration', {
       method: 'POST',
@@ -1438,7 +1447,7 @@ function toggleEmergencyStay() {
     });
   } else {
     btn.classList.remove('frozen');
-    ico.textContent = '📌';
+    ico.textContent = '';
     lbl.textContent = 'Emergency Stay (Freeze Answer) [P]';
     fetch('/set_duration', {
       method: 'POST',
@@ -1579,9 +1588,9 @@ function openApiKeyModal() {
         input.placeholder = 'Current key: ' + d.masked_key;
       }
       if (d.configured) {
-        if (msg) { msg.textContent = '✅ Active Key: ' + d.masked_key; msg.style.color = '#34d399'; }
+        if (msg) { msg.textContent = 'Active Key: ' + d.masked_key; msg.style.color = '#34d399'; }
       } else {
-        if (msg) { msg.textContent = '⚠️ No API key set yet'; msg.style.color = '#fcd34d'; }
+        if (msg) { msg.textContent = 'No API key set yet'; msg.style.color = '#fcd34d'; }
       }
       if (input) input.focus();
     })
@@ -1599,10 +1608,10 @@ function toggleKeyVisibility() {
   if (!input) return;
   if (input.type === 'password') {
     input.type = 'text';
-    if (btn) btn.textContent = '🔒 Hide';
+    if (btn) btn.textContent = 'Hide';
   } else {
     input.type = 'password';
-    if (btn) btn.textContent = '👁️ Show';
+    if (btn) btn.textContent = 'Show';
   }
 }
 
@@ -1622,16 +1631,16 @@ function saveApiKey() {
   .then(r => r.json())
   .then(d => {
     if (d.status === 'ok') {
-      if (msg) { msg.textContent = '✅ ' + (d.message || 'Key saved successfully!'); msg.style.color = '#34d399'; }
+      if (msg) { msg.textContent = (d.message || 'Key saved successfully!'); msg.style.color = '#34d399'; }
       if (input) { input.value = ''; input.placeholder = 'Current key: ' + d.masked_key; }
       checkApiKeyStatus();
       setTimeout(closeApiKeyModal, 900);
     } else {
-      if (msg) { msg.textContent = '❌ Error: ' + (d.error || 'Failed to save'); msg.style.color = '#f43f5e'; }
+      if (msg) { msg.textContent = 'Error: ' + (d.error || 'Failed to save'); msg.style.color = '#f43f5e'; }
     }
   })
   .catch(err => {
-    if (msg) { msg.textContent = '❌ Network error saving key'; msg.style.color = '#f43f5e'; }
+    if (msg) { msg.textContent = 'Network error saving key'; msg.style.color = '#f43f5e'; }
   });
 }
 
@@ -1643,10 +1652,10 @@ function checkApiKeyStatus() {
       const btn = document.getElementById('api-key-btn');
       if (d.configured) {
         if (banner) banner.style.display = 'none';
-        if (btn) { btn.innerHTML = '🔑 <span style="color:#34d399">●</span> API Key'; btn.title = 'Groq API Key Active: ' + d.masked_key; }
+        if (btn) { btn.innerHTML = '<span style="color:#34d399">●</span> API Key'; btn.title = 'Groq API Key Active: ' + d.masked_key; }
       } else {
         if (banner) banner.style.display = 'flex';
-        if (btn) { btn.innerHTML = '🔑 <span style="color:#fcd34d">●</span> Enter Key'; btn.title = 'Groq API Key Not Configured'; }
+        if (btn) { btn.innerHTML = '<span style="color:#fcd34d">●</span> Enter Key'; btn.title = 'Groq API Key Not Configured'; }
       }
     })
     .catch(() => {});
@@ -1714,7 +1723,7 @@ function initBrowserSpeech() {
         if (event.results[i].isFinal) {
           const text = event.results[i][0].transcript.trim();
           if (text.length > 2) {
-            document.getElementById('vad-label').textContent = '⚡ Asking: ' + text.slice(0, 32) + '...';
+            document.getElementById('vad-label').textContent = 'Asking: ' + text.slice(0, 32) + '...';
             document.getElementById('vad-label').style.color = '#60a5fa';
             fetch('/solve', {
               method: 'POST',
@@ -1724,7 +1733,7 @@ function initBrowserSpeech() {
           }
         } else {
           interim += event.results[i][0].transcript;
-          document.getElementById('vad-label').textContent = '👂 Heard: ' + interim;
+          document.getElementById('vad-label').textContent = 'Heard: ' + interim;
           document.getElementById('vad-label').style.color = '#f87171';
         }
       }
@@ -1757,11 +1766,11 @@ function updateBrowserMicUI() {
   if (!btn) return;
   if (isBrowserListening) {
     btn.classList.add('active-mic');
-    if (ico) ico.textContent = '🔴';
+    if (ico) ico.textContent = '';
     if (txt) txt.textContent = 'Browser Mic: LISTENING LIVE (Click to stop)';
   } else {
     btn.classList.remove('active-mic');
-    if (ico) ico.textContent = '🎙️';
+    if (ico) ico.textContent = '';
     if (txt) txt.textContent = 'Web Browser Mic: Click to Listen Live';
   }
 }
@@ -1778,7 +1787,7 @@ function toggleBrowserMic() {
   if (isBrowserListening) {
     try {
       speechRec.start();
-      document.getElementById('vad-label').textContent = '👂 Browser Mic Active — Speak anytime!';
+      document.getElementById('vad-label').textContent = 'Browser Mic Active - Speak anytime!';
       document.getElementById('vad-label').style.color = '#34d399';
     } catch(e) {
       console.error(e);
@@ -1792,7 +1801,7 @@ function toggleBrowserMic() {
 }
 
 function clearAll() {
-  document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:32px;color:#64748b;font-size:13px">👻 Ready</div>';
+  document.getElementById('out').innerHTML = '<div class="output-card" style="text-align:center;padding:32px;color:#64748b;font-size:13px">Ready</div>';
   document.getElementById('heard-box').style.display = 'none';
   if (isFrozen) toggleEmergencyStay();
   displayedMd = ''; tokenQ = [];
@@ -1806,10 +1815,10 @@ function connect() {
     const vi = document.getElementById('vad-icon');
     if (!vl || !vi) return;
     vl.textContent = d.label || '';
-    if (d.state === 'listening') { vi.textContent = '👂'; vl.style.color = '#f87171'; }
-    else if (d.state === 'processing') { vi.textContent = '⚡'; vl.style.color = '#60a5fa'; }
-    else if (d.state === 'cooling') { vi.textContent = '📖'; vl.style.color = '#fbbf24'; }
-    else { vi.textContent = currentMode === 'auto' ? '🔁' : '🎤'; vl.style.color = '#93c5fd'; }
+    if (d.state === 'listening') { vi.textContent = ''; vl.style.color = '#f87171'; }
+    else if (d.state === 'processing') { vi.textContent = ''; vl.style.color = '#60a5fa'; }
+    else if (d.state === 'cooling') { vi.textContent = ''; vl.style.color = '#fbbf24'; }
+    else { vi.textContent = ''; vl.style.color = '#93c5fd'; }
   });
 
   es.addEventListener('ptt_state', e => {
@@ -1821,12 +1830,12 @@ function connect() {
     if (!btn || !lbl || !ico) return;
     if (isPTT) {
       btn.classList.add('rec');
-      ico.textContent = '⏹️';
+      ico.textContent = '';
       lbl.textContent = 'Listening... Spacebar to submit';
     } else {
       btn.classList.remove('rec');
-      ico.textContent = '🎤';
-      lbl.textContent = 'Press Spacebar — Start Speaking';
+      ico.textContent = '';
+      lbl.textContent = 'Press Spacebar - Start Speaking';
     }
   });
 
@@ -1836,9 +1845,9 @@ function connect() {
     const si = document.getElementById('spk-icon');
     if (!sl || !si) return;
     sl.textContent = d.label || '';
-    if (d.state === 'active') { si.textContent = '🔊'; sl.style.color = '#34d399'; }
-    else if (d.state === 'processing') { si.textContent = '⚡'; sl.style.color = '#60a5fa'; }
-    else { si.textContent = '❌'; sl.style.color = '#f87171'; }
+    if (d.state === 'active') { si.textContent = ''; sl.style.color = '#34d399'; }
+    else if (d.state === 'processing') { si.textContent = ''; sl.style.color = '#60a5fa'; }
+    else { si.textContent = ''; sl.style.color = '#f87171'; }
   });
 
   es.addEventListener('status', e => {
@@ -1859,7 +1868,7 @@ function connect() {
   });
   es.addEventListener('error', e => {
     try {
-      document.getElementById('out').innerHTML = `<div style="color:#fb7185;padding:12px;font-size:12.5px;background:rgba(244,63,94,0.1);border-radius:8px">⚠️ ${JSON.parse(e.data).message}</div>`;
+      document.getElementById('out').innerHTML = `<div style="color:#fb7185;padding:12px;font-size:12.5px;background:rgba(244,63,94,0.1);border-radius:8px"> ${JSON.parse(e.data).message}</div>`;
     } catch (_) {}
   });
   es.onerror = () => setTimeout(connect, 2000);
@@ -1873,21 +1882,21 @@ connect();
   <div class="modal-content" style="max-width:440px">
     <div class="modal-header">
       <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:15px">🔑</span>
+        <span style="font-size:15px"></span>
         <span style="font-weight:700;font-size:13px;color:#f1f5f9">Groq API Key Configuration</span>
       </div>
-      <button class="btn-glass" onclick="closeApiKeyModal()">✕</button>
+      <button class="btn-glass" onclick="closeApiKeyModal()">x</button>
     </div>
     <div style="font-size:11.5px;color:#94a3b8;margin-bottom:10px;line-height:1.6">
       Paste your Groq API key to activate real-time speech transcription and high-speed LLM answers.
-      <br><a href="https://console.groq.com/keys" target="_blank" style="color:#60a5fa;text-decoration:none;font-weight:600">➜ Get a free key at console.groq.com/keys</a>
+      <br><a href="https://console.groq.com/keys" target="_blank" style="color:#60a5fa;text-decoration:none;font-weight:600">Get a free key at console.groq.com/keys</a>
     </div>
     <div style="margin-bottom:8px">
       <input type="password" class="prompt-textarea" id="groq-api-key-input" style="min-height:38px;height:38px;padding:8px 12px;font-family:monospace;font-size:12px" placeholder="Paste your key: your_groq_api_key_here" autocomplete="off">
     </div>
     <div id="api-key-msg" style="font-size:11px;min-height:16px;margin-bottom:8px"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-      <button class="btn-glass" onclick="toggleKeyVisibility()" id="vis-key-toggle-btn" style="font-size:11px">👁️ Show</button>
+      <button class="btn-glass" onclick="toggleKeyVisibility()" id="vis-key-toggle-btn" style="font-size:11px">Show</button>
       <div style="display:flex;gap:6px">
         <button class="btn-glass" onclick="closeApiKeyModal()">Cancel</button>
         <button class="btn-ask" onclick="saveApiKey()" id="save-api-key-btn">Save Key</button>
@@ -1900,10 +1909,10 @@ connect();
   <div class="modal-content">
     <div class="modal-header">
       <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:14px">⚙️</span>
+        <span style="font-size:14px"></span>
         <span style="font-weight:700;font-size:13px;color:#f1f5f9">AI Interview Persona &amp; Instructions</span>
       </div>
-      <button class="btn-glass" onclick="closeRoleModal()">✕</button>
+      <button class="btn-glass" onclick="closeRoleModal()">x</button>
     </div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">
       Set specific instructions, target job role, interview stage, or guidelines for the AI:
@@ -1926,7 +1935,7 @@ UNLOCK_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interview Assistant — Session Unlock</title>
+<title>Interview Assistant - Session Unlock</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   body { background: #0b0f19; color: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
@@ -1945,13 +1954,13 @@ UNLOCK_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <div class="card">
-  <div class="icon">🎙️</div>
+  <div class="icon"></div>
   <h1>Interview Assistant Verification</h1>
   <p>To access the HUD in your browser, enter the session token generated by the local engine.</p>
   <form id="f" onsubmit="unlock(event)">
     <input type="password" id="t" placeholder="Paste session token here..." autocomplete="off" required autofocus />
     <button type="submit" id="b">Unlock HUD</button>
-    <button type="button" id="cp" onclick="autoPaste()" style="margin-top: 10px; background: #1e293b; border: 1px solid #334155; color: #94a3b8;">📋 Auto-Paste &amp; Unlock</button>
+    <button type="button" id="cp" onclick="autoPaste()" style="margin-top: 10px; background: #1e293b; border: 1px solid #334155; color: #94a3b8;">Auto-Paste &amp; Unlock</button>
   </form>
   <div id="err" class="error">Invalid token. Please check your .session_token file.</div>
   <div class="hint">Your token is in: <code>.session_token</code> (in the app folder)</div>
@@ -2010,7 +2019,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     host_only = host_hdr.split(':')[0].strip().lower()
                     if host_only not in ('localhost', '127.0.0.1', '::1', '[::1]'):
-                        print(f"[🛡️ Security Alert] Blocked suspicious Host header (DNS rebinding attempt): {host_hdr}")
+                        print(f"[ Security Alert] Blocked suspicious Host header (DNS rebinding attempt): {host_hdr}")
                         return False
                 except Exception:
                     return False
@@ -2021,7 +2030,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     host = urllib.parse.urlparse(origin).hostname or ''
                     if host not in ('localhost', '127.0.0.1'):
-                        print(f"[🛡️ Security Alert] Blocked cross-origin request from origin: {origin}")
+                        print(f"[ Security Alert] Blocked cross-origin request from origin: {origin}")
                         return False
                 except Exception:
                     return False
@@ -2031,7 +2040,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     host = urllib.parse.urlparse(referer).hostname or ''
                     if host not in ('localhost', '127.0.0.1'):
-                        print(f"[🛡️ Security Alert] Blocked cross-origin request from referer: {referer}")
+                        print(f"[ Security Alert] Blocked cross-origin request from referer: {referer}")
                         return False
                 except Exception:
                     return False
@@ -2186,9 +2195,9 @@ class Handler(BaseHTTPRequestHandler):
                         with open(env_path, "w", encoding="utf-8") as f:
                             f.writelines(new_lines)
                     except Exception as pe:
-                        print(f"[⚠️ Notice] Could not persist key to .env file: {pe}")
+                        print(f"[ Notice] Could not persist key to .env file: {pe}")
                     masked = (new_key[:6] + "..." + new_key[-4:]) if len(new_key) > 10 else "***"
-                    print(f"[🔑 API Key Configured via HUD UI] Active key set: {masked}")
+                    print(f"[ API Key Configured via HUD UI] Active key set: {masked}")
                     self._ok({'status': 'ok', 'message': 'API key updated and saved!', 'configured': True, 'masked_key': masked})
                 else:
                     self._ok({'status': 'error', 'error': 'Invalid API key format: must match ^[a-zA-Z0-9_.-]{10,128}$'})
@@ -2198,30 +2207,30 @@ class Handler(BaseHTTPRequestHandler):
             new_prompt = json.loads(body).get('prompt', '').strip()
             if new_prompt:
                 SYSTEM_PROMPT = new_prompt
-                print(f"[⚙️ Role Updated] System prompt updated ({len(SYSTEM_PROMPT)} chars)")
+                print(f"[ Role Updated] System prompt updated ({len(SYSTEM_PROMPT)} chars)")
                 self._ok({'status': 'ok', 'prompt': SYSTEM_PROMPT})
             else:
                 self._ok({'status': 'empty', 'prompt': SYSTEM_PROMPT})
         elif parsed_path == '/reset_system_prompt':
             SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
-            print("[⚙️ Role Reset] Reverted to default interview system prompt")
+            print("[ Role Reset] Reverted to default interview system prompt")
             self._ok({'status': 'ok', 'prompt': SYSTEM_PROMPT})
         elif parsed_path == '/set_mode':
             mode = json.loads(body).get('mode','ptt')
             auto_mode = (mode == 'auto')
             if auto_mode:
-                broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+                broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
             else:
-                broadcast("vadstate", {"state": "idle", "label": "🎤 PTT ready — Spacebar"})
-            print(f"[🔁 Mode Switched] Active mode: {mode} (Auto-VAD: {auto_mode})")
+                broadcast("vadstate", {"state": "idle", "label": "PTT ready - Spacebar"})
+            print(f"[ Mode Switched] Active mode: {mode} (Auto-VAD: {auto_mode})")
             self._ok({'auto': auto_mode, 'mode': mode})
         elif parsed_path == '/skip_question':
             with gen_lock:
                 gen_id += 1 # Abort current streaming LLM call immediately
             reading_until = 0.0 # Reset cooldown
-            print("[⏭️ Emergency Skip] Aborted active question, resumed auto-listen.")
+            print("[ Emergency Skip] Aborted active question, resumed auto-listen.")
             broadcast("status", {"state": "ready"})
-            broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+            broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
             self._ok({'status': 'skipped'})
         elif parsed_path == '/set_duration':
             dur = json.loads(body).get('duration', 'auto')
@@ -2229,11 +2238,11 @@ class Handler(BaseHTTPRequestHandler):
                 user_custom_duration = int(dur) if str(dur).isdigit() else str(dur)
             except Exception:
                 user_custom_duration = 'auto'
-            print(f"[⏱️ Duration Setting] Display & cooldown duration: {user_custom_duration}")
+            print(f"[ Duration Setting] Display & cooldown duration: {user_custom_duration}")
             self._ok({'duration': user_custom_duration})
         elif parsed_path == '/set_sharing':
             sharing_mode = json.loads(body).get('mode', 'hidden')
-            print(f"[👁 Screen share] {sharing_mode}")
+            print(f"[ Screen share] {sharing_mode}")
             self._ok({'sharing': sharing_mode})
         elif parsed_path == '/toggle_ptt':
             if manual_recording:
@@ -2262,7 +2271,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    print("="*52); print("  🎙️ INTERVIEW ASSISTANT v3 (DESKTOP ENGINE)"); print("="*52)
+    print("="*52); print("   INTERVIEW ASSISTANT v3 (DESKTOP ENGINE)"); print("="*52)
     print(f"  Bound to: http://{HOST}:{PORT}")
     print(f"  AI Key configured: {'YES' if GROQ_KEY else 'NO'}")
     ThreadingHTTPServer.allow_reuse_address = True
@@ -2273,10 +2282,10 @@ def main():
             break
         except OSError as e:
             if attempt < 4:
-                print(f"[⚠️ Port {PORT} in TIME_WAIT] Retrying bind in 1 second... ({attempt + 1}/5)")
+                print(f"[ Port {PORT} in TIME_WAIT] Retrying bind in 1 second... ({attempt + 1}/5)")
                 time.sleep(1)
             else:
-                print(f"[❌ Fatal] Could not bind to http://{HOST}:{PORT}: {e}")
+                print(f"[ Fatal] Could not bind to http://{HOST}:{PORT}: {e}")
                 sys.exit(1)
 
     print(f"  Interview Assistant Desktop Server running on http://{HOST}:{PORT}")

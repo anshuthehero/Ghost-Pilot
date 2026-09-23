@@ -14,7 +14,7 @@ from client.platform.macos.audio import MacAudioProvider
 
 async def run_interview_simulation():
     print("================================================================")
-    print("  👻 GHOST COPILOT — 10-15 MIN INTERVIEW SIMULATION TEST")
+    print("  GHOST COPILOT - 10-15 MIN INTERVIEW SIMULATION TEST")
     print("================================================================")
     
     with TestClient(app) as client:
@@ -81,7 +81,7 @@ async def run_interview_simulation():
         print(f"      Sharing mode: {s_resp.json()['mode']}, auto: True")
 
     print("\n================================================================")
-    print("  ✅ MULTI-TURN INTERVIEW SIMULATION PASSED CLEANLY")
+    print("  [SUCCESS] MULTI-TURN INTERVIEW SIMULATION PASSED CLEANLY")
     print("================================================================\n")
 
 if __name__ == "__main__":

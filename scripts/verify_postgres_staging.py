@@ -31,7 +31,7 @@ def run_staging_validation():
     jwt_secret = os.environ.get("JWT_SECRET_KEY", "super-secure-production-jwt-key-minimum-32-chars-long!")
 
     print("=" * 64)
-    print("  👻 GHOST COPILOT — POSTGRESQL STAGING VERIFICATION")
+    print("  GHOST COPILOT - POSTGRESQL STAGING VERIFICATION")
     print("=" * 64)
 
     print("\n[1/6] Auditing production fail-closed security guards...")
@@ -132,7 +132,7 @@ def run_staging_validation():
 
     print("\n[6/6] Finalizing staging report...")
     print("=" * 64)
-    print("  ✅ POSTGRESQL STAGING VALIDATION COMPLETED SUCCESSFULLY")
+    print("  [SUCCESS] POSTGRESQL STAGING VALIDATION COMPLETED")
     print("=" * 64)
 
 

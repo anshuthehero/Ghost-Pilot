@@ -46,19 +46,47 @@ try:
     )
     try:
         from PyQt6.QtWebEngineWidgets import QWebEngineView
-        from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage
+        from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineHttpRequest
         from PyQt6.QtNetwork import QNetworkCookie
+        from PyQt6.QtCore import QByteArray
         HAS_WEBENGINE = True
     except ImportError:
         HAS_WEBENGINE = False
+
 except ImportError:
-    print(
-        "\n[Ghost Copilot Launcher]\n"
-        "PyQt6 is required but not installed.\n"
-        "Run:  pip install PyQt6 PyQt6-WebEngine\n"
-        "Then double-click this launcher again.\n"
-    )
-    sys.exit(1)
+    if __name__ == "__main__":
+        print(
+            "\n[Ghost Copilot Launcher]\n"
+            "PyQt6 is required but not installed.\n"
+            "Run:  pip install PyQt6 PyQt6-WebEngine\n"
+            "Then double-click this launcher again.\n"
+        )
+        sys.exit(1)
+    else:
+        class _MockSignal:
+            def __init__(self, *args, **kwargs): pass
+            def connect(self, *args, **kwargs): pass
+            def emit(self, *args, **kwargs): pass
+        pyqtSignal = _MockSignal
+
+        class _DummyMeta(type):
+            def __getattr__(cls, name):
+                return cls
+
+        class _Dummy(metaclass=_DummyMeta):
+            def __init__(self, *args, **kwargs): pass
+            def __call__(self, *args, **kwargs): return self
+            def __getattr__(self, name): return self
+
+        QApplication = QMainWindow = QWidget = QVBoxLayout = QHBoxLayout = _Dummy
+        QLabel = QPushButton = QLineEdit = QStackedWidget = _Dummy
+        QGraphicsDropShadowEffect = QProgressBar = QFrame = QSizePolicy = _Dummy
+        Qt = QThread = QTimer = QPoint = QSize = QPropertyAnimation = _Dummy
+        QEasingCurve = QUrl = QFont = QColor = QPainter = QBrush = QPen = QLinearGradient = _Dummy
+        QPixmap = QIcon = QPainterPath = QCursor = QFontDatabase = _Dummy
+        QWebEngineView = QWebEngineSettings = QWebEnginePage = QWebEngineHttpRequest = _Dummy
+        QNetworkCookie = QByteArray = _Dummy
+        HAS_WEBENGINE = False
 
 
 # ── Palette ───────────────────────────────────────────────────────────────────
@@ -124,13 +152,20 @@ def _write_api_key(key: str) -> bool:
         return False
 
 def _read_session_token() -> str:
-    try:
-        if os.path.exists(TOKEN_FILE):
-            with open(TOKEN_FILE, "r") as f:
-                return f.read().strip()
-    except OSError:
-        pass
+    env_token = os.environ.get("COPILOT_AUTH_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    for candidate in (TOKEN_FILE, os.path.join(BASE_DIR, ".session_token")):
+        try:
+            if os.path.exists(candidate):
+                with open(candidate, "r", encoding="utf-8") as f:
+                    tok = f.read().strip()
+                    if tok:
+                        return tok
+        except OSError:
+            pass
     return ""
+
 
 
 # ── Background system-check worker ───────────────────────────────────────────
@@ -334,10 +369,10 @@ class _TitleBar(QWidget):
         lay.setContentsMargins(16, 0, 10, 0)
         lay.setSpacing(8)
 
-        ghost = QLabel("👻")
-        ghost.setFont(QFont("", 18))
-        ghost.setStyleSheet("background: transparent;")
-        lay.addWidget(ghost)
+        dot = QLabel("●")
+        dot.setFont(QFont("", 10))
+        dot.setStyleSheet(f"color: {ACCENT}; background: transparent;")
+        lay.addWidget(dot)
 
         title_f = QFont()
         title_f.setPointSize(13)
@@ -382,13 +417,12 @@ class _SplashPage(QWidget):
 
         lay = QVBoxLayout(self)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.setSpacing(18)
+        lay.setSpacing(14)
         lay.setContentsMargins(40, 60, 40, 60)
 
-        ghost = _lbl("👻", 72, align=Qt.AlignmentFlag.AlignCenter)
-        name  = _lbl("Ghost Copilot", 28, bold=True,
+        name  = _lbl("GHOST COPILOT", 22, bold=True,
                       align=Qt.AlignmentFlag.AlignCenter)
-        sub   = _lbl("Initializing stealth engine…", 12, TEXT_DIM,
+        sub   = _lbl("Stealth Desktop Assistant", 12, TEXT_DIM,
                       align=Qt.AlignmentFlag.AlignCenter)
 
         self.bar = QProgressBar()
@@ -404,20 +438,21 @@ class _SplashPage(QWidget):
         ver = _lbl(f"v3.0 · {platform.system()} {platform.machine()}",
                    10, TEXT_MUT, align=Qt.AlignmentFlag.AlignCenter)
 
-        for w in (ghost, name, sub, self.bar, ver):
+        for w in (name, sub, self.bar, ver):
             lay.addWidget(w)
 
         self._val = 0
-        self._t = QTimer()
+        self._t = QTimer(self)
         self._t.timeout.connect(self._tick)
-        self._t.start(18)
+        self._t.start(10)   # fast 80ms splash
 
     def _tick(self):
-        self._val += 2
+        self._val += 20
         self.bar.setValue(min(self._val, 100))
         if self._val >= 100:
             self._t.stop()
-            QTimer.singleShot(300, self.finished.emit)
+            self.finished.emit()
+
 
 
 # ── Page 1: System checks + API key entry ────────────────────────────────────
@@ -519,11 +554,12 @@ class _SetupPage(QWidget):
         outer.addStretch()
 
         # ── Launch button ──
-        self.launch_btn = _btn("🚀  Launch Ghost Copilot", primary=True)
+        self.launch_btn = _btn("Launch Ghost Copilot", primary=True)
         self.launch_btn.setFixedHeight(52)
         self.launch_btn.setEnabled(False)
         self.launch_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.launch_btn.clicked.connect(self.launch_requested.emit)
+
         outer.addWidget(self.launch_btn)
 
         # Pre-fill existing key
@@ -558,9 +594,9 @@ class _SetupPage(QWidget):
 
     def _start_ffmpeg_install(self) -> None:
         self.ffmpeg_btn.setEnabled(False)
-        self.ffmpeg_btn.setText("Installing…")
+        self.ffmpeg_btn.setText("Installing...")
         dot, detail_lbl = self._rows["Audio / FFmpeg"]
-        detail_lbl.setText("Starting…")
+        detail_lbl.setText("Starting...")
         detail_lbl.setStyleSheet(f"color:{INFO};font-size:11px;")
         self._ff_worker = FFmpegInstallWorker()
         self._ff_worker.progress.connect(lambda msg: detail_lbl.setText(msg))
@@ -601,11 +637,11 @@ class _SetupPage(QWidget):
     def _save_key(self) -> None:
         key = self.key_input.text().strip()
         if not _KEY_RE.match(key):
-            self.key_status.setText("⚠  Key must be 10–128 alphanumeric characters.")
+            self.key_status.setText("Key must be 10-128 alphanumeric characters.")
             self.key_status.setStyleSheet(f"color:{WARN};font-size:11px;")
             return
         if _write_api_key(key):
-            self.key_status.setText("✓  Saved to local .env — never leaves this device.")
+            self.key_status.setText("Saved to local .env - never leaves this device.")
             self.key_status.setStyleSheet(f"color:{SUCCESS};font-size:11px;")
             if "API Key" in self._rows:
                 dot, det = self._rows["API Key"]
@@ -614,14 +650,14 @@ class _SetupPage(QWidget):
                 # BUG-01 fix: safe masking that never overlaps or crashes
                 n = len(key)
                 if n > 10:
-                    masked = key[:6] + "•" * max(0, n - 10) + key[-4:]
+                    masked = key[:6] + "*" * max(0, n - 10) + key[-4:]
                 else:
-                    masked = key[:4] + "•" * (n - 4)
+                    masked = key[:4] + "*" * (n - 4)
                 det.setText(masked)
                 det.setStyleSheet(f"color:{SUCCESS};font-size:11px;")
             self._refresh_launch_btn()
         else:
-            self.key_status.setText("✗  Could not write to .env — check folder permissions.")
+            self.key_status.setText("Could not write to .env - check folder permissions.")
             self.key_status.setStyleSheet(f"color:{ERROR};font-size:11px;")
 
 
@@ -639,9 +675,10 @@ class _DragBar(QWidget):
         )
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 0, 8, 0)
-        lbl = QLabel("👻  Ghost Copilot")
+        lbl = QLabel("Ghost Copilot")
         lbl.setStyleSheet(f"color:{TEXT_DIM};font-size:11px;background:transparent;")
         lay.addWidget(lbl)
+
         lay.addStretch()
         close_b = QPushButton("✕")
         close_b.setFixedSize(22, 22)
@@ -769,7 +806,9 @@ class _HUDWindow(QMainWindow):
                         pass
 
         view = QWebEngineView()
-        view.setPage(_LocalPage(view))
+        page = _LocalPage(view)
+        page.setBackgroundColor(QColor(13, 13, 16))
+        view.setPage(page)
         s = view.settings()
         try:
             s.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, False)
@@ -790,8 +829,25 @@ class _HUDWindow(QMainWindow):
             except Exception:
                 pass
 
-        view.setUrl(QUrl(DAEMON_URL))
+            try:
+                req = QWebEngineHttpRequest(QUrl(DAEMON_URL))
+                req.setHeader(
+                    QByteArray(b"Authorization"),
+                    QByteArray(f"Bearer {auth_token}".encode())
+                )
+                view.load(req)
+            except Exception:
+                view.setUrl(QUrl(DAEMON_URL))
+        else:
+            view.setUrl(QUrl(DAEMON_URL))
+
+        def _on_load_finish(ok: bool):
+            if not ok:
+                QTimer.singleShot(700, lambda: view.setUrl(QUrl(DAEMON_URL)))
+        view.loadFinished.connect(_on_load_finish)
+
         lay.addWidget(view)
+
 
     def _apply_win_affinity(self) -> None:
         try:
@@ -867,62 +923,102 @@ class _LauncherWindow(QMainWindow):
     def _show_setup(self) -> None:
         self._stack.setCurrentIndex(1)
 
-    def _on_launch(self) -> None:
-        self._setup.launch_btn.setText("Starting daemon…")
-        self._setup.launch_btn.setEnabled(False)
+    def _is_daemon_healthy(self) -> bool:
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open("http://127.0.0.1:9471/health", timeout=0.3) as resp:
+                return resp.status < 500
+        except Exception:
+            return False
 
-        # BUG-03 fix: tell user if app.py is missing (e.g. PyInstaller bundle issue)
+    def _on_launch(self) -> None:
+        self._setup.launch_btn.setText("Starting engine...")
+        self._setup.launch_btn.setEnabled(False)
+        self._setup.key_status.clear()
+
+        # Fast path: If daemon is already running, open HUD instantly (< 50ms)
+        if self._is_daemon_healthy():
+            self._open_hud()
+            return
+
         if not os.path.exists(APP_PY):
-            self._setup.launch_btn.setText("❌  app.py not found — reinstall")
-            self._setup.key_status.setText("app.py is missing from the installation folder.")
+            self._setup.launch_btn.setText("Launch Ghost Copilot")
+            self._setup.launch_btn.setEnabled(True)
+            self._setup.key_status.setText("app.py not found in installation folder.")
             self._setup.key_status.setStyleSheet(f"color:{ERROR};font-size:11px;")
             return
 
         self._start_daemon()
 
-        # BUG-02 fix: poll daemon readiness instead of blind 2800ms sleep
         self._poll_attempts = 0
-        self._poll_timer = QTimer()
+        self._poll_timer = QTimer(self)
         self._poll_timer.timeout.connect(self._poll_daemon)
-        self._poll_timer.start(400)   # check every 400 ms
+        self._poll_timer.start(250)   # fast polling every 250ms
 
     def _poll_daemon(self) -> None:
         """Poll until daemon responds on port 9471, then open HUD."""
         self._poll_attempts += 1
-        ready = False
-        try:
-            # Bypass any system/environment HTTP proxies for localhost probe
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            resp = opener.open("http://127.0.0.1:9471/health", timeout=0.5)
-            ready = resp.status < 500
-        except Exception:
-            pass
 
-        if ready:
+        # Check if the process crashed/exited immediately
+        if self._daemon and self._daemon.poll() is not None:
+            self._poll_timer.stop()
+            err_line = ""
+            try:
+                if self._daemon.stderr:
+                    err_bytes = self._daemon.stderr.read()
+                    if err_bytes:
+                        lines = err_bytes.decode("utf-8", errors="replace").strip().splitlines()
+                        err_line = lines[-1] if lines else ""
+            except Exception:
+                pass
+            msg = f"Engine failed: {err_line[:60]}" if err_line else f"Engine exited with code {self._daemon.returncode}"
+            self._setup.launch_btn.setText("Launch Ghost Copilot")
+            self._setup.launch_btn.setEnabled(True)
+            self._setup.key_status.setText(msg)
+            self._setup.key_status.setStyleSheet(f"color:{ERROR};font-size:11px;")
+            return
+
+        if self._is_daemon_healthy():
             self._poll_timer.stop()
             self._open_hud()
-        elif self._poll_attempts >= 25:   # 25 × 400ms = 10s timeout
+        elif self._poll_attempts >= 30:   # 30 × 250ms = 7.5s timeout
             self._poll_timer.stop()
-            # Daemon didn't start in time — open HUD anyway (it will retry)
-            self._open_hud()
+            self._setup.launch_btn.setText("Retry Launch")
+            self._setup.launch_btn.setEnabled(True)
+            self._setup.key_status.setText("Engine startup timed out. Click Retry.")
+            self._setup.key_status.setStyleSheet(f"color:{WARN};font-size:11px;")
 
     def _start_daemon(self) -> None:
+        # Terminate any stale zombie processes on Windows
+        if IS_WIN:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "python.exe", "/FI", "WINDOWTITLE eq Ghost Copilot Engine*"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2
+                )
+            except Exception:
+                pass
+
         env = os.environ.copy()
-        # Prepend bin directory to PATH so daemon finds bundled or downloaded FFmpeg
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
         bin_dir = os.path.join(BASE_DIR, "bin")
         if os.path.exists(bin_dir):
             env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+
         try:
             self._daemon = subprocess.Popen(
                 [sys.executable, APP_PY],
                 cwd=BASE_DIR,
                 env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-
         except OSError as e:
-            print(f"[Launcher] Could not start daemon: {e}")
+            self._setup.launch_btn.setText("Launch Ghost Copilot")
+            self._setup.launch_btn.setEnabled(True)
+            self._setup.key_status.setText(f"Could not start engine: {e}")
+            self._setup.key_status.setStyleSheet(f"color:{ERROR};font-size:11px;")
 
     def _open_hud(self) -> None:
         token = _read_session_token()
@@ -931,6 +1027,7 @@ class _LauncherWindow(QMainWindow):
         self._daemon = None   # HUD now owns it
         self._hud.show()
         self.hide()
+
 
     # ── cleanup ── #
     def closeEvent(self, e) -> None:

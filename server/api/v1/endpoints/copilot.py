@@ -115,7 +115,7 @@ async def skip_question(
     ctx = await session_manager.get_or_create_context(session_id=sess_id, user_id=user.id)
     ctx.abort_current_generation()
     await ctx.broadcast("status", {"state": "ready"})
-    await ctx.broadcast("vadstate", {"state": "listening", "label": "👂 Auto-Listening (speak anytime)..."})
+    await ctx.broadcast("vadstate", {"state": "listening", "label": "Auto-Listening (speak anytime)..."})
     return {"status": "skipped", "session_id": sess_id}
 
 

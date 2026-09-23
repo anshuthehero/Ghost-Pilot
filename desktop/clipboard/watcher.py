@@ -110,7 +110,7 @@ class DesktopClipboard:
         if not content or len(content) < 5:
             return None
         if cls.is_sensitive(content):
-            print("[🛡️ Security] Clipboard content contains potential credentials. Blocked from AI transmission.")
+            print("[Security] Clipboard content contains potential credentials. Blocked from AI transmission.")
             return None
         return content
 

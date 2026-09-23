@@ -29,7 +29,7 @@ from client.audio.manager import get_audio_provider
 
 async def run_live_pipeline():
     print("=" * 64)
-    print("  👻 GHOST COPILOT — LIVE AI PIPELINE VERIFICATION")
+    print("  GHOST COPILOT - LIVE AI PIPELINE VERIFICATION")
     print("=" * 64)
 
     api_key = settings.AI_API_KEY or settings.GROQ_API_KEY
@@ -94,7 +94,7 @@ async def run_live_pipeline():
     print("      [PASS] Temporary file unlinked cleanly.")
 
     print("\n" + "=" * 64)
-    print("  ✅ LIVE AI PIPELINE CONTINUOUS SESSION PASSED")
+    print("  [SUCCESS] LIVE AI PIPELINE CONTINUOUS SESSION PASSED")
     print("=" * 64)
 
 
