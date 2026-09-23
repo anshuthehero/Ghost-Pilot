@@ -196,6 +196,8 @@ class CheckWorker(QThread):
     def _chk_qt(self):
         try:
             from PyQt6.QtCore import PYQT_VERSION_STR
+            if not HAS_WEBENGINE:
+                return False, "PyQt6-WebEngine missing (pip install PyQt6-WebEngine)"
             return True, f"PyQt6 {PYQT_VERSION_STR}"
         except Exception:
             return False, "Not found"
@@ -947,6 +949,14 @@ class _LauncherWindow(QMainWindow):
             return False
 
     def _on_launch(self) -> None:
+        try:
+            raw_key = self._setup.key_input.text()
+            typed_key = raw_key.strip() if isinstance(raw_key, str) else ""
+            if typed_key and _KEY_RE.match(typed_key) and typed_key != _read_api_key():
+                _write_api_key(typed_key)
+        except Exception:
+            pass
+
         self._setup.launch_btn.setText("Starting engine...")
         self._setup.launch_btn.setEnabled(False)
         self._setup.key_status.clear()
@@ -1036,9 +1046,27 @@ class _LauncherWindow(QMainWindow):
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
+        env["PYTHONUNBUFFERED"] = "1"
         bin_dir = os.path.join(BASE_DIR, "bin")
         if os.path.exists(bin_dir):
             env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+
+        key = _read_api_key()
+        if key:
+            env["GROQ_API_KEY"] = key
+
+        token = _read_session_token()
+        if not token:
+            import secrets
+            token = secrets.token_hex(24)
+            for candidate in (TOKEN_FILE, os.path.join(BASE_DIR, ".session_token")):
+                try:
+                    os.makedirs(os.path.dirname(candidate), exist_ok=True)
+                    with open(candidate, "w", encoding="utf-8") as f:
+                        f.write(token)
+                except Exception:
+                    pass
+        env["COPILOT_AUTH_TOKEN"] = token
 
         try:
             out_target = self._daemon_log if self._daemon_log else subprocess.DEVNULL

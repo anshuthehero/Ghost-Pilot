@@ -43,7 +43,10 @@ def find_ffmpeg() -> Dict[str, Any]:
             direct_bin = os.path.join(curr, bin_name)
             if os.path.isfile(direct_bin):
                 candidates.append(direct_bin)
-            # Check for repo-level bin/ directory
+            # Check for repo-level bin/ directory (both root bin/ and platform-specific)
+            bin_direct = os.path.join(curr, "bin", bin_name)
+            if os.path.isfile(bin_direct):
+                candidates.append(bin_direct)
             plat_sub = "windows" if sys.platform.startswith("win") else "macos"
             repo_bin = os.path.join(curr, "bin", plat_sub, bin_name)
             if os.path.isfile(repo_bin):

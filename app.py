@@ -399,7 +399,7 @@ def stream_answer(question, gid):
 
         broadcast("status", {"state": "done"})
         broadcast("cooldown", {"seconds": cooldown, "words": wc, "mode": str(user_custom_duration)})
-        print(f"[] {wc} words -> {cooldown}s duration (mode: {user_custom_duration})")
+        print(f"[ Answer] {wc} words -> {cooldown}s duration (mode: {user_custom_duration})")
 
 
 def solve(question):
@@ -507,7 +507,7 @@ def detect_audio_devices():
                         m = re.search(r'\[(\d+)\]', line)
                         if m:
                             BLACKHOLE_DEVICE = m.group(1)
-                            print(f"[] BlackHole at [{BLACKHOLE_DEVICE}]")
+                            print(f"[ Loopback] BlackHole at [{BLACKHOLE_DEVICE}]")
         except Exception:
             pass
         if not MIC_DEVICE:
@@ -540,11 +540,11 @@ def detect_audio_devices():
                     clean_name = line.split("]")[ -1].strip().strip('"')
                     if clean_name:
                         BLACKHOLE_DEVICE = clean_name
-                        print(f"[] Windows WASAPI loopback target: \"{BLACKHOLE_DEVICE}\"")
+                        print(f"[ System Audio] Windows WASAPI loopback target: \"{BLACKHOLE_DEVICE}\"")
                         break
         except Exception:
             pass
-        print(f"[] Windows native WASAPI loopback ready (using: {BLACKHOLE_DEVICE}).")
+        print(f"[ System Audio] Windows native WASAPI loopback ready (using: {BLACKHOLE_DEVICE}).")
 
 def detect_mic():
     detect_audio_devices()
@@ -621,7 +621,15 @@ def ptt_record():
         broadcast("ptt_state", {"recording": True})
         broadcast("vadstate", {"state": "recording", "label": "Recording... speak now"})
         cmd = get_mic_ffmpeg_args(ptt)
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_win32_sp_kwargs())
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_win32_sp_kwargs())
+        except Exception as e:
+            print(f"[ PTT Audio Error] Could not start recording: {e}")
+            manual_recording = False
+            broadcast("ptt_state", {"recording": False})
+            broadcast("vadstate", {"state": "idle", "label": "Mic error: verify audio device / ffmpeg"})
+            return
+
         while manual_recording:
             time.sleep(0.05)
         proc.terminate()
@@ -635,6 +643,7 @@ def ptt_record():
         else:
             broadcast("vadstate", {"state": "idle", "label": "PTT ready - Spacebar"})
     finally:
+        manual_recording = False
         ptt_lock.release()
 
 

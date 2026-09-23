@@ -225,3 +225,70 @@ class TestGegenpressScenarios:
                 content = f.read()
                 matches = emoji_pattern.findall(content)
                 assert not matches, f"Found emojis {matches} in {fname}"
+
+    def test_scenario_8_webengine_preflight_check(self):
+        """
+        Scenario 8:
+        Verify CheckWorker._chk_qt detects and warns if PyQt6-WebEngine is missing.
+        """
+        import launcher
+        worker = launcher.CheckWorker()
+        mock_qt_core = MagicMock()
+        mock_qt_core.PYQT_VERSION_STR = "6.5.0"
+        with patch.dict("sys.modules", {"PyQt6.QtCore": mock_qt_core}), \
+             patch("launcher.HAS_WEBENGINE", False):
+            ok, msg = worker._chk_qt()
+            assert not ok
+            assert "PyQt6-WebEngine missing" in msg
+
+    def test_scenario_9_auto_save_api_key_on_launch(self, tmp_path):
+        """
+        Scenario 9:
+        Verify _on_launch auto-saves typed API key to .env if user forgot to click Save.
+        """
+        from launcher import _LauncherWindow, _read_api_key
+        temp_env = tmp_path / ".env"
+
+        with patch("launcher.ENV_PATH", str(temp_env)), \
+             patch.object(_LauncherWindow, "__init__", lambda self: None):
+            win = _LauncherWindow()
+            win._setup = MagicMock()
+            mock_key_input = MagicMock()
+            mock_key_input.text.return_value = "gsk_testvalidkey1234567890abcdef"
+            win._setup.key_input = mock_key_input
+            win._is_daemon_healthy = MagicMock(return_value=False)
+            win._start_daemon = MagicMock()
+            win._poll_daemon = MagicMock()
+
+            with patch("launcher.APP_PY", __file__):
+                win._on_launch()
+
+            saved = _read_api_key()
+            assert saved == "gsk_testvalidkey1234567890abcdef"
+
+    def test_scenario_10_daemon_environment_injection(self):
+        """
+        Scenario 10:
+        Verify _start_daemon injects PYTHONUNBUFFERED=1, GROQ_API_KEY, and COPILOT_AUTH_TOKEN.
+        """
+        from launcher import _LauncherWindow
+        with patch.object(_LauncherWindow, "__init__", lambda self: None):
+            win = _LauncherWindow()
+            win._daemon_log = None
+            captured_env = {}
+
+            def mock_popen(args, cwd, env, stdout, stderr):
+                nonlocal captured_env
+                captured_env = env
+                proc = MagicMock()
+                proc.poll.return_value = None
+                return proc
+
+            with patch("subprocess.Popen", side_effect=mock_popen), \
+                 patch("launcher._read_api_key", return_value="gsk_daemon_env_key_test_123456"), \
+                 patch("launcher._read_session_token", return_value="test_session_token_12345"):
+                win._start_daemon()
+
+            assert captured_env.get("PYTHONUNBUFFERED") == "1"
+            assert captured_env.get("GROQ_API_KEY") == "gsk_daemon_env_key_test_123456"
+            assert captured_env.get("COPILOT_AUTH_TOKEN") == "test_session_token_12345"
