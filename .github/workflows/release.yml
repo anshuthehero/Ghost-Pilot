@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"          # triggers on v1.0.0, v1.2.3, etc.
   workflow_dispatch:  # allows manual trigger from GitHub UI
+    inputs:
+      version:
+        description: "Version label (e.g. v1.2.0) — used for artifact naming"
+        required: false
+        default: "dev"
 
 permissions:
   contents: write   # needed to create releases and upload assets
@@ -35,10 +40,19 @@ jobs:
         run: |
           pyinstaller packaging/windows/launcher_win.spec --noconfirm --clean
 
+      - name: Verify build output exists
+        shell: cmd
+        run: |
+          if not exist dist\GhostCopilot\GhostCopilot.exe (
+            echo [ERROR] Build failed — GhostCopilot.exe not found in dist\GhostCopilot\
+            exit /b 1
+          )
+          echo [OK] Build verified.
+
       - name: Package as ZIP
         shell: pwsh
         run: |
-          $ver = "${{ github.ref_name }}"
+          $ver = if ("${{ github.ref_name }}" -ne "") { "${{ github.ref_name }}" } else { "${{ github.event.inputs.version }}" }
           Compress-Archive -Path dist\GhostCopilot\* -DestinationPath "GhostCopilot_Windows_$ver.zip"
 
       - name: Upload artifact
@@ -70,9 +84,18 @@ jobs:
         run: |
           pyinstaller packaging/macos/launcher_mac.spec --noconfirm --clean
 
+      - name: Verify build output exists
+        run: |
+          if [ ! -d "dist/Ghost Copilot.app" ]; then
+            echo "[ERROR] Build failed — Ghost Copilot.app not found in dist/"
+            exit 1
+          fi
+          echo "[OK] Build verified."
+
       - name: Package as ZIP
         run: |
           VER="${{ github.ref_name }}"
+          if [ -z "$VER" ]; then VER="${{ github.event.inputs.version }}"; fi
           cd dist
           zip -r "../GhostCopilot_Mac_${VER}.zip" "Ghost Copilot.app"
 
@@ -100,7 +123,8 @@ jobs:
           name: macos-build
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        # BUG-04 fix: pin to specific version tag (not @v2 floating)
+        uses: softprops/action-gh-release@v2.0.4
         with:
           name: "Ghost Copilot ${{ github.ref_name }}"
           body: |

@@ -56,6 +56,7 @@ hidden = [
     "uvicorn.protocols.http.auto",
     "uvicorn.lifespan",
     "uvicorn.lifespan.on",
+    # BUG-12 fix: uvloop requires libuv — excluded so uvicorn falls back to asyncio
 ]
 
 
@@ -68,7 +69,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "scipy", "notebook", "pandas", "PySide6"],
+    excludes=["tkinter", "matplotlib", "scipy", "notebook", "pandas", "PySide6",
+              "uvloop", "uvicorn.loops.uvloop"],   # BUG-12: libuv not bundleable on Windows
     cipher=block_cipher,
     noarchive=False,
 )

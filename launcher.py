@@ -453,6 +453,9 @@ class _SetupPage(QWidget):
         self._refresh_launch_btn()
 
     def _refresh_launch_btn(self) -> None:
+        # BUG-06 fix: require both a valid key AND checks finished
+        if not self._checks_done:
+            return
         key = _read_api_key() or self.key_input.text().strip()
         self.launch_btn.setEnabled(bool(key and _KEY_RE.match(key)))
 
@@ -469,7 +472,12 @@ class _SetupPage(QWidget):
                 dot, det = self._rows["API Key"]
                 dot.setText("✓")
                 dot.setStyleSheet(f"color:{SUCCESS};font-size:16px;background:transparent;")
-                masked = key[:6] + "•" * min(10, len(key) - 10) + key[-4:]
+                # BUG-01 fix: safe masking that never overlaps or crashes
+                n = len(key)
+                if n > 10:
+                    masked = key[:6] + "•" * max(0, n - 10) + key[-4:]
+                else:
+                    masked = key[:4] + "•" * (n - 4)
                 det.setText(masked)
                 det.setStyleSheet(f"color:{SUCCESS};font-size:11px;")
             self._refresh_launch_btn()
@@ -479,12 +487,53 @@ class _SetupPage(QWidget):
 
 
 # ── HUD floating window (appears after launch) ────────────────────────────────
+class _DragBar(QWidget):
+    """Mini title bar for the HUD that supports drag-to-move without monkey-patching."""
+    def __init__(self, parent_win: QMainWindow) -> None:
+        super().__init__(parent_win)
+        self._win = parent_win
+        self._drag_pos: QPoint | None = None
+        self.setFixedHeight(28)
+        self.setStyleSheet(
+            f"background:{SURFACE};border-bottom:1px solid {BORDER};"
+            f"border-top-left-radius:12px;border-top-right-radius:12px;"
+        )
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(12, 0, 8, 0)
+        lbl = QLabel("👻  Ghost Copilot")
+        lbl.setStyleSheet(f"color:{TEXT_DIM};font-size:11px;background:transparent;")
+        lay.addWidget(lbl)
+        lay.addStretch()
+        close_b = QPushButton("✕")
+        close_b.setFixedSize(22, 22)
+        close_b.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        close_b.setStyleSheet(
+            f"QPushButton{{color:{TEXT_DIM};background:transparent;border:none;"
+            f"font-size:12px;border-radius:4px;}}"
+            f"QPushButton:hover{{color:{TEXT};background:{BORDER};}}"
+        )
+        close_b.clicked.connect(parent_win.close)
+        lay.addWidget(close_b)
+
+    def mousePressEvent(self, e) -> None:
+        if e.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = e.globalPosition().toPoint() - self._win.pos()
+
+    def mouseMoveEvent(self, e) -> None:
+        if self._drag_pos and e.buttons() == Qt.MouseButton.LeftButton:
+            self._win.move(e.globalPosition().toPoint() - self._drag_pos)
+
+    def mouseReleaseEvent(self, e) -> None:
+        self._drag_pos = None
+
+
 class _HUDWindow(QMainWindow):
     """Frameless, always-on-top WebEngine view of the daemon HUD."""
 
-    def __init__(self, auth_token: str = "") -> None:
+    def __init__(self, auth_token: str = "", daemon: "subprocess.Popen | None" = None) -> None:
         super().__init__()
         self._auth_token = auth_token
+        self._daemon = daemon   # BUG-10 fix: HUD owns the daemon ref so closing HUD kills it
 
         self.setWindowTitle("Ghost Copilot")
         self.setWindowFlags(
@@ -519,43 +568,8 @@ class _HUDWindow(QMainWindow):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
 
-        # Mini drag bar
-        bar = QWidget()
-        bar.setFixedHeight(28)
-        bar.setStyleSheet(
-            f"background:{SURFACE};border-bottom:1px solid {BORDER};"
-            f"border-top-left-radius:12px;border-top-right-radius:12px;"
-        )
-        bar_lay = QHBoxLayout(bar)
-        bar_lay.setContentsMargins(12, 0, 8, 0)
-        icon = QLabel("👻  Ghost Copilot")
-        icon.setStyleSheet(f"color:{TEXT_DIM};font-size:11px;background:transparent;")
-        bar_lay.addWidget(icon)
-        bar_lay.addStretch()
-        close_b = QPushButton("✕")
-        close_b.setFixedSize(22, 22)
-        close_b.setStyleSheet(
-            f"QPushButton{{color:{TEXT_DIM};background:transparent;border:none;"
-            f"font-size:12px;border-radius:4px;}}"
-            f"QPushButton:hover{{color:{TEXT};background:{BORDER};}}"
-        )
-        close_b.clicked.connect(self.close)
-        bar_lay.addWidget(close_b)
-        lay.addWidget(bar)
-
-        # Drag support for mini bar
-        bar._drag_pos = None
-        def _press(e, b=bar):
-            if e.button() == Qt.MouseButton.LeftButton:
-                b._drag_pos = e.globalPosition().toPoint() - self.pos()
-        def _move(e, b=bar):
-            if b._drag_pos and e.buttons() == Qt.MouseButton.LeftButton:
-                self.move(e.globalPosition().toPoint() - b._drag_pos)
-        def _release(e, b=bar):
-            b._drag_pos = None
-        bar.mousePressEvent   = _press
-        bar.mouseMoveEvent    = _move
-        bar.mouseReleaseEvent = _release
+        # BUG-07 fix: use proper _DragBar subclass instead of monkey-patching
+        lay.addWidget(_DragBar(self))
 
         # Content
         if HAS_WEBENGINE:
@@ -570,6 +584,12 @@ class _HUDWindow(QMainWindow):
         # Windows: exclude from screen-share capture
         if IS_WIN:
             QTimer.singleShot(500, self._apply_win_affinity)
+
+    def closeEvent(self, e) -> None:
+        # BUG-10 fix: kill daemon when HUD is closed
+        if self._daemon and self._daemon.poll() is None:
+            self._daemon.terminate()
+        super().closeEvent(e)
 
     def _setup_webengine(self, lay: QVBoxLayout, auth_token: str) -> None:
         class _LocalPage(QWebEnginePage):
@@ -711,12 +731,42 @@ class _LauncherWindow(QMainWindow):
     def _on_launch(self) -> None:
         self._setup.launch_btn.setText("Starting daemon…")
         self._setup.launch_btn.setEnabled(False)
+
+        # BUG-03 fix: tell user if app.py is missing (e.g. PyInstaller bundle issue)
+        if not os.path.exists(APP_PY):
+            self._setup.launch_btn.setText("❌  app.py not found — reinstall")
+            self._setup.key_status.setText("app.py is missing from the installation folder.")
+            self._setup.key_status.setStyleSheet(f"color:{ERROR};font-size:11px;")
+            return
+
         self._start_daemon()
-        QTimer.singleShot(2800, self._open_hud)
+
+        # BUG-02 fix: poll daemon readiness instead of blind 2800ms sleep
+        self._poll_attempts = 0
+        self._poll_timer = QTimer()
+        self._poll_timer.timeout.connect(self._poll_daemon)
+        self._poll_timer.start(400)   # check every 400 ms
+
+    def _poll_daemon(self) -> None:
+        """Poll until daemon responds on port 9471, then open HUD."""
+        import urllib.request
+        self._poll_attempts += 1
+        ready = False
+        try:
+            resp = urllib.request.urlopen("http://127.0.0.1:9471/", timeout=0.5)
+            ready = resp.status < 500
+        except Exception:
+            pass
+
+        if ready:
+            self._poll_timer.stop()
+            self._open_hud()
+        elif self._poll_attempts >= 25:   # 25 × 400ms = 10s timeout
+            self._poll_timer.stop()
+            # Daemon didn't start in time — open HUD anyway (it will retry)
+            self._open_hud()
 
     def _start_daemon(self) -> None:
-        if not os.path.exists(APP_PY):
-            return
         env = os.environ.copy()
         try:
             self._daemon = subprocess.Popen(
@@ -731,7 +781,9 @@ class _LauncherWindow(QMainWindow):
 
     def _open_hud(self) -> None:
         token = _read_session_token()
-        self._hud = _HUDWindow(auth_token=token)
+        # BUG-10 fix: pass daemon ref to HUD so HUD.closeEvent kills it
+        self._hud = _HUDWindow(auth_token=token, daemon=self._daemon)
+        self._daemon = None   # HUD now owns it
         self._hud.show()
         self.hide()
 

@@ -1,5 +1,5 @@
 @echo off
-title Interview Assistant
+title Ghost Copilot
 echo ===================================================
 echo   Starting Interview Assistant on Windows...
 echo ===================================================
