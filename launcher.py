@@ -166,6 +166,13 @@ class CheckWorker(QThread):
             return False, "Not found"
 
     def _chk_ffmpeg(self):
+        try:
+            from client.core.ffmpeg import find_ffmpeg
+            info = find_ffmpeg()
+            if info.get("status") == "READY":
+                return True, "Ready (" + ("Bundled" if info.get("is_bundled") else "System") + ")"
+        except Exception:
+            pass
         if shutil.which("ffmpeg"):
             return True, "Found in PATH"
         # local bundled binary?
@@ -178,9 +185,14 @@ class CheckWorker(QThread):
     def _chk_apikey(self):
         key = _read_api_key()
         if key and _KEY_RE.match(key):
-            masked = key[:6] + "•" * min(10, len(key) - 10) + key[-4:]
+            n = len(key)
+            if n > 10:
+                masked = key[:6] + "•" * max(0, n - 10) + key[-4:]
+            else:
+                masked = key[:4] + "•" * (n - 4)
             return True, masked
         return False, "Not configured — enter below"
+
 
 
 class FFmpegInstallWorker(QThread):
@@ -209,7 +221,9 @@ class FFmpegInstallWorker(QThread):
                 self.progress.emit("Downloading audio engine...")
                 url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
                 zip_path = os.path.join(bin_dir, "ffmpeg_dl.zip")
-                urllib.request.urlretrieve(url, zip_path)
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req, timeout=60) as resp, open(zip_path, "wb") as out_f:
+                    shutil.copyfileobj(resp, out_f)
                 self.progress.emit("Extracting ffmpeg.exe...")
                 with zipfile.ZipFile(zip_path, 'r') as zf:
                     for name in zf.namelist():
@@ -237,7 +251,9 @@ class FFmpegInstallWorker(QThread):
                 self.progress.emit("Downloading audio engine...")
                 url = "https://evermeet.cx/ffmpeg/getrelease/zip"
                 zip_path = os.path.join(bin_dir, "ffmpeg_dl.zip")
-                urllib.request.urlretrieve(url, zip_path)
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+                with urllib.request.urlopen(req, timeout=60) as resp, open(zip_path, "wb") as out_f:
+                    shutil.copyfileobj(resp, out_f)
                 self.progress.emit("Extracting ffmpeg...")
                 with zipfile.ZipFile(zip_path, 'r') as zf:
                     for name in zf.namelist():
@@ -253,6 +269,7 @@ class FFmpegInstallWorker(QThread):
                     self.finished.emit(True, "Bundled binary")
                     return
             self.finished.emit(False, "Auto-install unavailable")
+
         except Exception as e:
             self.finished.emit(False, str(e))
 
@@ -871,11 +888,12 @@ class _LauncherWindow(QMainWindow):
 
     def _poll_daemon(self) -> None:
         """Poll until daemon responds on port 9471, then open HUD."""
-        import urllib.request
         self._poll_attempts += 1
         ready = False
         try:
-            resp = urllib.request.urlopen("http://127.0.0.1:9471/", timeout=0.5)
+            # Bypass any system/environment HTTP proxies for localhost probe
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            resp = opener.open("http://127.0.0.1:9471/health", timeout=0.5)
             ready = resp.status < 500
         except Exception:
             pass
@@ -890,6 +908,10 @@ class _LauncherWindow(QMainWindow):
 
     def _start_daemon(self) -> None:
         env = os.environ.copy()
+        # Prepend bin directory to PATH so daemon finds bundled or downloaded FFmpeg
+        bin_dir = os.path.join(BASE_DIR, "bin")
+        if os.path.exists(bin_dir):
+            env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
         try:
             self._daemon = subprocess.Popen(
                 [sys.executable, APP_PY],
@@ -898,6 +920,7 @@ class _LauncherWindow(QMainWindow):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+
         except OSError as e:
             print(f"[Launcher] Could not start daemon: {e}")
 

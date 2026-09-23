@@ -111,8 +111,8 @@ set "QTWEBENGINE_CHROMIUM_FLAGS=--use-fake-ui-for-media-stream --auto-select-des
 
 
 REM 4. Start local AI engine in background
-echo [*] Starting Interview Assistant Engine on http://127.0.0.1:9471...
-start "Interview Assistant Engine" /min "%PYTHON_EXE%" app.py
+echo [*] Starting Ghost Copilot Engine on http://127.0.0.1:9471...
+start "Ghost Copilot Engine" /min "%PYTHON_EXE%" app.py
 
 REM 5. Wait for engine startup
 timeout /t 2 /nobreak >nul 2>&1 || ping 127.0.0.1 -n 3 >nul
@@ -142,4 +142,5 @@ REM 7. Clean shutdown when client window closes
 echo.
 echo [*] Stopping background engine...
 call stop_windows.bat >nul 2>&1
-echo [OK] Interview Assistant session closed.
+echo [OK] Ghost Copilot session closed.
+
