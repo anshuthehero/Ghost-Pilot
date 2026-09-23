@@ -292,3 +292,36 @@ class TestGegenpressScenarios:
             assert captured_env.get("PYTHONUNBUFFERED") == "1"
             assert captured_env.get("GROQ_API_KEY") == "gsk_daemon_env_key_test_123456"
             assert captured_env.get("COPILOT_AUTH_TOKEN") == "test_session_token_12345"
+
+    def test_scenario_11_system_doctor_execution(self):
+        """
+        Scenario 11:
+        Verify doctor.py main executes cleanly and runs all system health checks.
+        """
+        import doctor
+        with patch("sys.version_info", (3, 11, 0)), \
+             patch("doctor.socket.socket") as mock_sock, \
+             patch("doctor.urllib.request.urlopen") as mock_urlopen, \
+             patch.dict("sys.modules", {
+                 "PyQt6.QtWidgets": MagicMock(),
+                 "PyQt6.QtCore": MagicMock(PYQT_VERSION_STR="6.5.0"),
+                 "PyQt6.QtWebEngineWidgets": MagicMock(),
+                 "PyQt6.QtWebEngineCore": MagicMock(),
+             }):
+            mock_s = MagicMock()
+            mock_sock.return_value = mock_s
+            mock_s.recv.return_value = b"HTTP/1.1 200 OK\r\n\r\n{\"status\":\"ok\"}"
+
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+            with patch("doctor.subprocess.Popen") as mock_popen, \
+                 patch("doctor.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0, stdout="ffmpeg version 7.0.0")
+                mock_proc = MagicMock()
+                mock_proc.poll.return_value = None
+                mock_proc.communicate.return_value = ("output", "")
+                mock_popen.return_value = mock_proc
+                code = doctor.main()
+                assert code == 0
