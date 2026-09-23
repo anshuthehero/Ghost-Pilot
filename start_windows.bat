@@ -107,19 +107,26 @@ start "Interview Assistant Engine" /min "%PYTHON_EXE%" app.py
 REM 5. Wait for engine startup
 timeout /t 2 /nobreak >nul 2>&1 || ping 127.0.0.1 -n 3 >nul
 
-REM 6. Launch the Stealth HUD or Web Interface
-echo [*] Launching Interview Assistant HUD...
-"%PYTHON_EXE%" -m client.platform.windows.client
-
+REM 6. Install PyQt6 if missing, then launch the native stealth HUD
+echo [*] Checking for native display engine (PyQt6)...
+"%PYTHON_EXE%" -c "import PyQt6" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo [*] Opening Interview Assistant in your default browser...
-    start http://127.0.0.1:9471/
-    echo.
-    echo [*] Interview Assistant is running in your web browser at http://127.0.0.1:9471/
-    echo Press any key to stop Interview Assistant...
-    pause >nul
+    echo [*] Installing native display engine — one-time setup, please wait...
+    "%PYTHON_EXE%" -m pip install --quiet --upgrade PyQt6 PyQt6-WebEngine
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo [!] Could not install PyQt6 automatically.
+        echo     Please run once in a terminal:  pip install PyQt6 PyQt6-WebEngine
+        echo     Then double-click start_windows.bat again.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo [OK] Display engine ready.
 )
+
+echo [*] Launching Ghost Copilot stealth window...
+"%PYTHON_EXE%" -m client.platform.windows.client
 
 REM 7. Clean shutdown when client window closes
 echo.
