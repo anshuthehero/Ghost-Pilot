@@ -383,7 +383,7 @@ class _SetupPage(QWidget):
 
         self.key_input = QLineEdit()
         self.key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.key_input.setPlaceholderText("gsk_ …")
+        self.key_input.setPlaceholderText("your_groq_api_key")
         self.key_input.setFixedHeight(38)
         self.key_input.setStyleSheet(
             f"QLineEdit{{background:{SURFACE2};color:{TEXT};border:1px solid {BORDER};"
