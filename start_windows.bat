@@ -7,6 +7,12 @@ echo.
 
 cd /d "%~dp0"
 
+REM Add bundled bin\ folder to PATH if it contains ffmpeg
+if exist "%~dp0bin\ffmpeg.exe" (
+    set "PATH=%~dp0bin;%PATH%"
+    echo [OK] Using Bundled FFmpeg Audio Engine.
+)
+
 REM 1. Locate Python executable (bundled zero-install runtime -> virtualenv -> system PATH)
 if exist "runtime\python.exe" (
     set "PYTHON_EXE=runtime\python.exe"

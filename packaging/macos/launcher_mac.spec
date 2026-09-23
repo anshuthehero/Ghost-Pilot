@@ -20,9 +20,15 @@ datas = [
     (os.path.join(repo_root, "app.py"),  "."),
 ]
 
+# Bundle local ffmpeg if present (optional — users can also install system-wide)
+ffmpeg_mac = os.path.join(repo_root, "bin", "ffmpeg")
+if os.path.exists(ffmpeg_mac):
+    datas.append((ffmpeg_mac, "bin"))
+
 icon_path = os.path.join(repo_root, "icon.icns")
 if not os.path.exists(icon_path):
     icon_path = None
+
 
 
 # ── Hidden imports ────────────────────────────────────────────────────────────

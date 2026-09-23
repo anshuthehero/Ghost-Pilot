@@ -35,6 +35,18 @@ jobs:
           pip install PyQt6 PyQt6-WebEngine PyInstaller
           pip install -r requirements.txt
 
+      - name: Pre-bundle FFmpeg for Windows
+        shell: cmd
+        run: |
+          if not exist bin mkdir bin
+          for /f "tokens=*" %%i in ('where ffmpeg 2^>nul') do (
+            if not exist bin\ffmpeg.exe copy "%%i" bin\ffmpeg.exe
+          )
+          if not exist bin\ffmpeg.exe (
+            powershell -Command "Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile 'bin\ffmpeg.zip'; Expand-Archive -Path 'bin\ffmpeg.zip' -DestinationPath 'bin\tmp'; Get-ChildItem -Path 'bin\tmp' -Filter 'ffmpeg.exe' -Recurse | Copy-Item -Destination 'bin\ffmpeg.exe'; Remove-Item -Recurse -Force 'bin\tmp', 'bin\ffmpeg.zip'"
+          )
+          if exist bin\ffmpeg.exe echo [OK] Pre-bundled FFmpeg into bin\ffmpeg.exe
+
       - name: Build with PyInstaller
         shell: cmd
         run: |
@@ -80,9 +92,24 @@ jobs:
           pip install PyQt6 PyQt6-WebEngine PyInstaller
           pip install -r requirements.txt
 
+      - name: Pre-bundle FFmpeg for macOS
+        run: |
+          mkdir -p bin
+          FFMPEG_SYS=$(which ffmpeg || true)
+          if [ -z "$FFMPEG_SYS" ]; then
+            brew install ffmpeg || true
+            FFMPEG_SYS=$(which ffmpeg || true)
+          fi
+          if [ -n "$FFMPEG_SYS" ]; then
+            cp "$FFMPEG_SYS" bin/ffmpeg
+            chmod +x bin/ffmpeg
+            echo "[OK] Pre-bundled FFmpeg into bin/ffmpeg"
+          fi
+
       - name: Build with PyInstaller
         run: |
           pyinstaller packaging/macos/launcher_mac.spec --noconfirm --clean
+
 
       - name: Verify build output exists
         run: |

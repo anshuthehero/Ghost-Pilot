@@ -15,6 +15,9 @@ import shutil
 import subprocess
 import time
 import platform
+import zipfile
+import urllib.request
+
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -178,6 +181,80 @@ class CheckWorker(QThread):
             masked = key[:6] + "•" * min(10, len(key) - 10) + key[-4:]
             return True, masked
         return False, "Not configured — enter below"
+
+
+class FFmpegInstallWorker(QThread):
+    """Downloads and extracts portable FFmpeg in background — zero-install for user."""
+    progress = pyqtSignal(str)
+    finished = pyqtSignal(bool, str)
+
+    def run(self) -> None:
+        try:
+            bin_dir = os.path.join(BASE_DIR, "bin")
+            os.makedirs(bin_dir, exist_ok=True)
+            if IS_WIN:
+                dest = os.path.join(bin_dir, "ffmpeg.exe")
+                # 1. Try winget first if available
+                if shutil.which("winget"):
+                    self.progress.emit("Running WinGet install...")
+                    res = subprocess.run(
+                        ["winget", "install", "-e", "--id", "Gyan.FFmpeg", "--accept-source-agreements", "--accept-package-agreements"],
+                        capture_output=True, timeout=120
+                    )
+                    if res.returncode == 0:
+                        self.finished.emit(True, "Installed via WinGet")
+                        return
+
+                # 2. Direct download of essentials zip from gyan.dev
+                self.progress.emit("Downloading audio engine...")
+                url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                zip_path = os.path.join(bin_dir, "ffmpeg_dl.zip")
+                urllib.request.urlretrieve(url, zip_path)
+                self.progress.emit("Extracting ffmpeg.exe...")
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    for name in zf.namelist():
+                        if name.endswith("ffmpeg.exe"):
+                            with zf.open(name) as src, open(dest, "wb") as dst:
+                                shutil.copyfileobj(src, dst)
+                            break
+                if os.path.exists(zip_path):
+                    try: os.remove(zip_path)
+                    except OSError: pass
+                if os.path.exists(dest):
+                    self.finished.emit(True, "Bundled binary")
+                    return
+            elif IS_MAC:
+                dest = os.path.join(bin_dir, "ffmpeg")
+                # 1. Try brew if available
+                if shutil.which("brew"):
+                    self.progress.emit("Running brew install...")
+                    res = subprocess.run(["brew", "install", "ffmpeg"], capture_output=True, timeout=180)
+                    if res.returncode == 0:
+                        self.finished.emit(True, "Installed via brew")
+                        return
+
+                # 2. Portable static macOS binary
+                self.progress.emit("Downloading audio engine...")
+                url = "https://evermeet.cx/ffmpeg/getrelease/zip"
+                zip_path = os.path.join(bin_dir, "ffmpeg_dl.zip")
+                urllib.request.urlretrieve(url, zip_path)
+                self.progress.emit("Extracting ffmpeg...")
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    for name in zf.namelist():
+                        if name.split("/")[-1] == "ffmpeg":
+                            with zf.open(name) as src, open(dest, "wb") as dst:
+                                shutil.copyfileobj(src, dst)
+                            break
+                if os.path.exists(zip_path):
+                    try: os.remove(zip_path)
+                    except OSError: pass
+                if os.path.exists(dest):
+                    os.chmod(dest, 0o755)
+                    self.finished.emit(True, "Bundled binary")
+                    return
+            self.finished.emit(False, "Auto-install unavailable")
+        except Exception as e:
+            self.finished.emit(False, str(e))
 
 
 # ── Shared widget helpers ─────────────────────────────────────────────────────
@@ -346,6 +423,17 @@ class _SetupPage(QWidget):
         outer.addWidget(_hline())
 
         # ── Check rows ──
+        self.ffmpeg_btn = QPushButton("Auto-Install")
+        self.ffmpeg_btn.setFixedHeight(22)
+        self.ffmpeg_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.ffmpeg_btn.setStyleSheet(
+            f"QPushButton{{background:{ACCENT};color:white;border:none;border-radius:4px;padding:0 8px;font-size:10px;font-weight:bold;}}"
+            f"QPushButton:hover{{background:{ACCENT_HOV};}}"
+            f"QPushButton:disabled{{background:{TEXT_MUT};color:{TEXT_DIM};}}"
+        )
+        self.ffmpeg_btn.clicked.connect(self._start_ffmpeg_install)
+        self.ffmpeg_btn.hide()
+
         checks_box = QVBoxLayout()
         checks_box.setSpacing(12)
         for name in ("Python Engine", "Display Engine", "Audio / FFmpeg", "API Key"):
@@ -364,6 +452,8 @@ class _SetupPage(QWidget):
 
             row.addWidget(dot)
             row.addWidget(name_lbl)
+            if name == "Audio / FFmpeg":
+                row.addWidget(self.ffmpeg_btn)
             row.addStretch()
             row.addWidget(detail_lbl)
             self._rows[name] = (dot, detail_lbl)
@@ -443,6 +533,38 @@ class _SetupPage(QWidget):
         detail_lbl.setStyleSheet(
             f"color:{SUCCESS if ok else TEXT_DIM};font-size:11px;"
         )
+        if name == "Audio / FFmpeg":
+            if not ok:
+                self.ffmpeg_btn.show()
+            else:
+                self.ffmpeg_btn.hide()
+
+    def _start_ffmpeg_install(self) -> None:
+        self.ffmpeg_btn.setEnabled(False)
+        self.ffmpeg_btn.setText("Installing…")
+        dot, detail_lbl = self._rows["Audio / FFmpeg"]
+        detail_lbl.setText("Starting…")
+        detail_lbl.setStyleSheet(f"color:{INFO};font-size:11px;")
+        self._ff_worker = FFmpegInstallWorker()
+        self._ff_worker.progress.connect(lambda msg: detail_lbl.setText(msg))
+        self._ff_worker.finished.connect(self._on_ffmpeg_finished)
+        self._ff_worker.start()
+
+    def _on_ffmpeg_finished(self, success: bool, msg: str) -> None:
+        dot, detail_lbl = self._rows["Audio / FFmpeg"]
+        if success:
+            dot.setText("✓")
+            dot.setStyleSheet(f"color:{SUCCESS};font-size:16px;background:transparent;")
+            detail_lbl.setText(msg)
+            detail_lbl.setStyleSheet(f"color:{SUCCESS};font-size:11px;")
+            self.ffmpeg_btn.hide()
+        else:
+            dot.setText("✗")
+            dot.setStyleSheet(f"color:{WARN};font-size:16px;background:transparent;")
+            detail_lbl.setText("Manual setup needed")
+            detail_lbl.setStyleSheet(f"color:{WARN};font-size:11px;")
+            self.ffmpeg_btn.setText("Retry")
+            self.ffmpeg_btn.setEnabled(True)
 
     def _on_checks_done(self) -> None:
         self._checks_done = True
