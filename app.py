@@ -38,6 +38,9 @@ if sys.platform.startswith('win'):
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
+bin_dir = os.path.join(BASE_DIR, "bin")
+if os.path.exists(bin_dir) and bin_dir not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
 AUDIO_DIR  = os.path.expanduser("~/.ghost_copilot/audio")
 try:
     os.makedirs(AUDIO_DIR, exist_ok=True)
@@ -2288,12 +2291,16 @@ def main():
                 print(f"[ Fatal] Could not bind to http://{HOST}:{PORT}: {e}")
                 sys.exit(1)
 
-    print(f"  Interview Assistant Desktop Server running on http://{HOST}:{PORT}")
+    def _bg_init():
+        try:
+            detect_audio_devices()
+        except Exception as e:
+            print(f"[ Audio Init Warning] {e}")
+        threading.Thread(target=clipboard_watcher, daemon=True).start()
+        threading.Thread(target=auto_vad_loop, daemon=True).start()
+        threading.Thread(target=speaker_vad_loop, daemon=True).start()
 
-    detect_audio_devices()
-    threading.Thread(target=clipboard_watcher, daemon=True).start()
-    threading.Thread(target=auto_vad_loop, daemon=True).start()
-    threading.Thread(target=speaker_vad_loop, daemon=True).start()
+    threading.Thread(target=_bg_init, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

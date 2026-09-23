@@ -924,9 +924,24 @@ class _LauncherWindow(QMainWindow):
         self._stack.setCurrentIndex(1)
 
     def _is_daemon_healthy(self) -> bool:
+        # 1. Direct raw loopback TCP probe (bypasses all OS proxies, firewalls, and hooks)
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            s.connect(("127.0.0.1", 9471))
+            s.sendall(b"GET /health HTTP/1.1\r\nHost: 127.0.0.1:9471\r\nConnection: close\r\n\r\n")
+            data = s.recv(256)
+            s.close()
+            if b"200" in data or b"status" in data:
+                return True
+        except Exception:
+            pass
+
+        # 2. HTTP opener fallback with explicit proxy bypass
         try:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with opener.open("http://127.0.0.1:9471/health", timeout=0.3) as resp:
+            with opener.open("http://127.0.0.1:9471/health", timeout=0.8) as resp:
                 return resp.status < 500
         except Exception:
             return False
@@ -963,11 +978,11 @@ class _LauncherWindow(QMainWindow):
         if self._daemon and self._daemon.poll() is not None:
             self._poll_timer.stop()
             err_line = ""
+            log_path = os.path.join(BASE_DIR, "daemon.log")
             try:
-                if self._daemon.stderr:
-                    err_bytes = self._daemon.stderr.read()
-                    if err_bytes:
-                        lines = err_bytes.decode("utf-8", errors="replace").strip().splitlines()
+                if os.path.exists(log_path):
+                    with open(log_path, "r", encoding="utf-8", errors="replace") as lf:
+                        lines = [l.strip() for l in lf.readlines() if l.strip()]
                         err_line = lines[-1] if lines else ""
             except Exception:
                 pass
@@ -981,23 +996,42 @@ class _LauncherWindow(QMainWindow):
         if self._is_daemon_healthy():
             self._poll_timer.stop()
             self._open_hud()
-        elif self._poll_attempts >= 30:   # 30 × 250ms = 7.5s timeout
+        elif self._poll_attempts >= 50:   # 50 × 250ms = 12.5s timeout
             self._poll_timer.stop()
+            last_line = ""
+            log_path = os.path.join(BASE_DIR, "daemon.log")
+            try:
+                if os.path.exists(log_path):
+                    with open(log_path, "r", encoding="utf-8", errors="replace") as lf:
+                        lines = [l.strip() for l in lf.readlines() if l.strip()]
+                        last_line = lines[-1] if lines else ""
+            except Exception:
+                pass
+            detail = f" ({last_line[:30]})" if last_line else ""
             self._setup.launch_btn.setText("Retry Launch")
             self._setup.launch_btn.setEnabled(True)
-            self._setup.key_status.setText("Engine startup timed out. Click Retry.")
+            self._setup.key_status.setText(f"Engine startup timed out{detail}. Click Retry.")
             self._setup.key_status.setStyleSheet(f"color:{WARN};font-size:11px;")
 
     def _start_daemon(self) -> None:
-        # Terminate any stale zombie processes on Windows
+        # Free port 9471 if an orphaned background process was left behind on Windows
         if IS_WIN:
             try:
-                subprocess.run(
-                    ["taskkill", "/F", "/IM", "python.exe", "/FI", "WINDOWTITLE eq Ghost Copilot Engine*"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2
-                )
+                ns = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=2)
+                for line in ns.stdout.splitlines():
+                    if ":9471" in line and "LISTENING" in line:
+                        parts = line.strip().split()
+                        pid = parts[-1]
+                        if pid.isdigit() and int(pid) != os.getpid():
+                            subprocess.run(["taskkill", "/F", "/PID", pid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
             except Exception:
                 pass
+
+        log_path = os.path.join(BASE_DIR, "daemon.log")
+        try:
+            self._daemon_log = open(log_path, "w", encoding="utf-8", errors="replace")
+        except Exception:
+            self._daemon_log = None
 
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
@@ -1007,12 +1041,13 @@ class _LauncherWindow(QMainWindow):
             env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
 
         try:
+            out_target = self._daemon_log if self._daemon_log else subprocess.DEVNULL
             self._daemon = subprocess.Popen(
                 [sys.executable, APP_PY],
                 cwd=BASE_DIR,
                 env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=out_target,
+                stderr=subprocess.STDOUT,
             )
         except OSError as e:
             self._setup.launch_btn.setText("Launch Ghost Copilot")
@@ -1033,6 +1068,11 @@ class _LauncherWindow(QMainWindow):
     def closeEvent(self, e) -> None:
         if self._daemon and self._daemon.poll() is None:
             self._daemon.terminate()
+        if hasattr(self, "_daemon_log") and self._daemon_log and not self._daemon_log.closed:
+            try:
+                self._daemon_log.close()
+            except Exception:
+                pass
         super().closeEvent(e)
 
 

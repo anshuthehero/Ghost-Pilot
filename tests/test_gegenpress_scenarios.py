@@ -71,8 +71,10 @@ class TestGegenpressScenarios:
         mock_proc = MagicMock()
         mock_proc.poll.return_value = 1
         mock_proc.returncode = 1
-        mock_proc.stderr = MagicMock()
-        mock_proc.stderr.read.return_value = b"ModuleNotFoundError: No module named 'groq'"
+
+        log_path = os.path.join(BASE_DIR, "daemon.log")
+        with open(log_path, "w", encoding="utf-8") as lf:
+            lf.write("ModuleNotFoundError: No module named 'groq'\n")
 
         # Mock launcher window instance
         with patch.object(_LauncherWindow, "__init__", lambda self: None):
