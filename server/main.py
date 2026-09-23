@@ -103,13 +103,23 @@ def get_diagnostics(user: User = Depends(get_current_user)):
     return checker.run_full_audit()
 
 
-# --- Backward Compatibility Routes (Preserves existing macOS Desktop HUD & ghost_copilot.m) ---
 @app.get("/", response_class=HTMLResponse, tags=["Compatibility"])
 @app.get("/index.html", response_class=HTMLResponse, tags=["Compatibility"])
 def get_desktop_hud():
     """Serves the desktop HUD directly to the embedded WebKit / QWebEngine view."""
     from app import HUD  # Import existing rich HUD UI template
-    return HTMLResponse(content=HUD)
+    headers = {
+        "Content-Security-Policy": (
+            "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+            "img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+        ),
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "no-referrer",
+    }
+    return HTMLResponse(content=HUD, headers=headers)
 
 
 @app.get("/sharing_mode", tags=["Compatibility"])

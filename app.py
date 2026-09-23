@@ -2082,8 +2082,8 @@ class Handler(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
-            # Issue SameSite=Strict cookie so all subsequent browser requests are automatically authenticated
-            if AUTH_TOKEN:
+            # Issue SameSite=Strict cookie only when caller is already authenticated
+            if AUTH_TOKEN and self.is_authorized():
                 self.send_header('Set-Cookie', f'ghost_session={AUTH_TOKEN}; Path=/; SameSite=Strict; HttpOnly')
             # Top-level defense-in-depth headers
             self.send_header('X-Content-Type-Options', 'nosniff')
@@ -2092,8 +2092,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Content-Security-Policy',
                              f"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                             f"style-src 'self' 'unsafe-inline'; connect-src *; "
-                             f"img-src 'self' data:; object-src 'none'; frame-ancestors 'none'")
+                             f"style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+                             f"img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'")
             self.end_headers()
             self.wfile.write(HUD.encode())
             return
@@ -2163,7 +2163,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(body.decode('utf-8'))
                 new_key = data.get('api_key', '').strip()
-                if new_key and len(new_key) >= 10:
+                if new_key and re.match(r'^[a-zA-Z0-9_.-]{10,128}$', new_key):
                     global GROQ_KEY
                     GROQ_KEY = new_key
                     os.environ["GROQ_API_KEY"] = new_key
@@ -2191,7 +2191,7 @@ class Handler(BaseHTTPRequestHandler):
                     print(f"[🔑 API Key Configured via HUD UI] Active key set: {masked}")
                     self._ok({'status': 'ok', 'message': 'API key updated and saved!', 'configured': True, 'masked_key': masked})
                 else:
-                    self._ok({'status': 'error', 'error': 'Invalid key length'})
+                    self._ok({'status': 'error', 'error': 'Invalid API key format: must match ^[a-zA-Z0-9_.-]{10,128}$'})
             except Exception as e:
                 self._ok({'status': 'error', 'error': str(e)})
         elif parsed_path == '/set_system_prompt':

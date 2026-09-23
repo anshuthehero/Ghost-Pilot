@@ -413,3 +413,178 @@ class TestTopLevelSecurityHardening:
         assert "acceptNavigationRequest" in content
         assert "127.0.0.1" in content
         assert "Blocked Windows browser navigation to external URL" in content
+
+
+# ==============================================================================
+# 9. REMEDIATION REGRESSION TESTS (SEC-13, SEC-17, SEC-08)
+# ==============================================================================
+
+class TestAuditRemediations:
+    def test_sec_13_unauthenticated_get_root_does_not_leak_cookie(self):
+        """SEC-13: GET / and /index.html must NOT issue Set-Cookie to unauthenticated callers."""
+        orig_token = desktop_app.AUTH_TOKEN
+        desktop_app.AUTH_TOKEN = "super-secret-auth-token-12345"
+        try:
+            handler = desktop_app.Handler.__new__(desktop_app.Handler)
+            handler.path = "/"
+            handler.headers = {"Host": "127.0.0.1:9471"}
+            sent_headers = []
+            handler.send_response = lambda code: None
+            handler.send_header = lambda k, v: sent_headers.append((k, v))
+            handler.end_headers = lambda: None
+            handler.wfile = io.BytesIO()
+
+            handler.do_GET()
+
+            cookie_headers = [v for k, v in sent_headers if k.lower() == 'set-cookie']
+            assert len(cookie_headers) == 0, f"Leaked cookie to anonymous user: {cookie_headers}"
+        finally:
+            desktop_app.AUTH_TOKEN = orig_token
+
+    def test_sec_13_authenticated_get_root_issues_cookie(self):
+        """SEC-13: GET / and /index.html issues Set-Cookie when caller is already authorized."""
+        orig_token = desktop_app.AUTH_TOKEN
+        desktop_app.AUTH_TOKEN = "super-secret-auth-token-12345"
+        try:
+            handler = desktop_app.Handler.__new__(desktop_app.Handler)
+            handler.path = "/"
+            handler.headers = {
+                "Host": "127.0.0.1:9471",
+                "Authorization": f"Bearer {desktop_app.AUTH_TOKEN}"
+            }
+            sent_headers = []
+            handler.send_response = lambda code: None
+            handler.send_header = lambda k, v: sent_headers.append((k, v))
+            handler.end_headers = lambda: None
+            handler.wfile = io.BytesIO()
+
+            handler.do_GET()
+
+            cookie_headers = [v for k, v in sent_headers if k.lower() == 'set-cookie']
+            assert len(cookie_headers) == 1
+            assert f"ghost_session={desktop_app.AUTH_TOKEN}" in cookie_headers[0]
+            assert "HttpOnly" in cookie_headers[0]
+            assert "SameSite=Strict" in cookie_headers[0]
+        finally:
+            desktop_app.AUTH_TOKEN = orig_token
+
+    def test_sec_13_auth_session_endpoint_exchanges_valid_token(self):
+        """SEC-13: POST /auth/session allows exchanging valid token for HttpOnly cookie."""
+        orig_token = desktop_app.AUTH_TOKEN
+        desktop_app.AUTH_TOKEN = "super-secret-auth-token-12345"
+        try:
+            # Valid token
+            handler = desktop_app.Handler.__new__(desktop_app.Handler)
+            handler.path = "/auth/session"
+            body = json.dumps({"token": desktop_app.AUTH_TOKEN}).encode("utf-8")
+            handler.headers = {"Content-Length": str(len(body))}
+            handler.rfile = io.BytesIO(body)
+            handler.wfile = io.BytesIO()
+            sent_headers = []
+            status_codes = []
+            handler.send_response = lambda code: status_codes.append(code)
+            handler.send_header = lambda k, v: sent_headers.append((k, v))
+            handler.end_headers = lambda: None
+
+            handler.do_POST()
+
+            assert 200 in status_codes
+            cookie_headers = [v for k, v in sent_headers if k.lower() == 'set-cookie']
+            assert len(cookie_headers) == 1
+            assert f"ghost_session={desktop_app.AUTH_TOKEN}" in cookie_headers[0]
+
+            # Invalid token
+            handler_bad = desktop_app.Handler.__new__(desktop_app.Handler)
+            handler_bad.path = "/auth/session"
+            bad_body = json.dumps({"token": "wrong-token"}).encode("utf-8")
+            handler_bad.headers = {"Content-Length": str(len(bad_body))}
+            handler_bad.rfile = io.BytesIO(bad_body)
+            handler_bad.wfile = io.BytesIO()
+            sent_bad_headers = []
+            bad_status = []
+            handler_bad.send_response = lambda code: bad_status.append(code)
+            handler_bad.send_header = lambda k, v: sent_bad_headers.append((k, v))
+            handler_bad.end_headers = lambda: None
+
+            handler_bad.do_POST()
+            assert 401 in bad_status
+            assert not any(k.lower() == 'set-cookie' for k, v in sent_bad_headers)
+        finally:
+            desktop_app.AUTH_TOKEN = orig_token
+
+    def test_sec_17_set_api_key_crlf_and_env_injection_rejected(self, tmp_path):
+        """SEC-17: Strictly validate API key against ^[a-zA-Z0-9_.-]{10,128}$ and reject CRLF/injection."""
+        orig_base_dir = desktop_app.BASE_DIR
+        desktop_app.BASE_DIR = str(tmp_path)
+        env_file = tmp_path / ".env"
+        env_file.write_text("EXISTING_KEY=123\n")
+
+        try:
+            handler = desktop_app.Handler.__new__(desktop_app.Handler)
+            handler.path = "/set_api_key"
+            handler.is_authorized = lambda: True
+
+            malicious_keys = [
+                "valid_key_12345\nADMIN_PASSWORD=injected",       # Newline injection
+                "valid_key_12345\r\nANOTHER_VAR=hacked",          # CRLF injection
+                "valid_key_12345\rATTACK=true",                   # CR injection
+                "valid_key_12345; rm -rf /",                      # Shell injection chars
+                "valid_key_12345' OR '1'='1",                     # SQL injection chars
+                "short",                                          # Under 10 chars
+                "a" * 129,                                        # Oversized >128 chars
+                "gsk_test!@#$%^&*()",                             # Illegal special chars
+            ]
+
+            for bad_key in malicious_keys:
+                body = json.dumps({"api_key": bad_key}).encode("utf-8")
+                handler.headers = {"Content-Length": str(len(body))}
+                handler.rfile = io.BytesIO(body)
+                handler.wfile = io.BytesIO()
+                responses = []
+                handler._ok = lambda d: responses.append(d)
+
+                handler.do_POST()
+
+                assert len(responses) == 1
+                assert responses[0]["status"] == "error", f"Malicious key was accepted: {bad_key!r}"
+                assert "Invalid API key format" in responses[0]["error"]
+
+                # Invariant: Rejected values must NEVER reach .env
+                current_env = env_file.read_text()
+                assert "injected" not in current_env
+                assert "hacked" not in current_env
+                assert bad_key not in current_env
+
+            # Valid key must succeed
+            valid_key = "gsk_valid_production_api_key_0123456789_abcdef.XYZ"
+            body = json.dumps({"api_key": valid_key}).encode("utf-8")
+            handler.headers = {"Content-Length": str(len(body))}
+            handler.rfile = io.BytesIO(body)
+            handler.wfile = io.BytesIO()
+            responses = []
+            handler._ok = lambda d: responses.append(d)
+
+            handler.do_POST()
+
+            assert len(responses) == 1
+            assert responses[0]["status"] == "ok"
+            current_env = env_file.read_text()
+            assert f"GROQ_API_KEY={valid_key}" in current_env
+        finally:
+            desktop_app.BASE_DIR = orig_base_dir
+
+    def test_sec_08_server_hud_security_headers(self):
+        """SEC-08: server/main.py root HUD route includes CSP, X-Frame-Options, X-Content-Type-Options."""
+        for path in ("/", "/index.html"):
+            r = client.get(path)
+            assert r.status_code == 200
+            assert r.headers.get("x-frame-options") == "DENY"
+            assert r.headers.get("x-content-type-options") == "nosniff"
+            csp = r.headers.get("content-security-policy", "")
+            assert "default-src 'self'" in csp
+            assert "connect-src 'self'" in csp
+            # Ensure connect-src is NOT wildcard *
+            connect_part = [part for part in csp.split(";") if "connect-src" in part]
+            assert connect_part, "Missing connect-src in CSP"
+            assert "*" not in connect_part[0].split(), f"connect-src contains wildcard *: {connect_part[0]}"
+
